@@ -10,7 +10,7 @@ def rollDice() -> tuple[int, int]:
 
 class Board:
     def __init__(self, position_list=None):
-        self.positions = [0, -1, 0, 0, 0, 5, 0, 3, 0, 0, 0, -5, 5, 0, 0, 0, -3, 0, -5, 0, 0, 0, 0, 2, 0, 0, 0, 0] if position_list is None else position_list
+        self.positions = [-2, 0, 0, 0, 0, 5, 0, 3, 0, 0, 0, -5, 5, 0, 0, 0, -3, 0, -5, 0, 0, 0, 0, 2, 0, 0, 0, 0] if position_list is None else position_list
         # index 0  to 23 represents number of checkers on points - negative for player one(dark), positive for player 2(light)
         # index 24 to 25 represents number of checkers on the bar - index 24 for P1, index 25 for P2
         # index 26 to 27 represents number of checkers off - index 26 for P1, index 27 for P2
@@ -46,12 +46,14 @@ class Board:
 
     def return_legal_moves(self, player: int, dice: tuple[int, int]) -> list:
         """Returns a list of legal moves for the given player and dice rolls."""
+        current_player = 1 if player == 1 else 0
+        if current_player == 0:
+            dice = (-dice[0], -dice[1])
+
         game = Backgammon()
         game.board, game.bar, game.off = self._return_gym_transform()
         game.players_positions = game.get_players_positions()
         game.state = game.save_state()
-
-        current_player = 1 if player == 1 else 0
 
         legal_moves = game.get_valid_plays(current_player,dice)
         return legal_moves
@@ -70,7 +72,6 @@ class Board:
         O = (self.positions[27], self.positions[26])
 
         return X, B, O
-
 
     def _return_gym_transform_env(self, player: int) -> list:
         """Returns a transformed version of the board for use in a gym environment."""
@@ -114,4 +115,4 @@ class Board:
 
 
 board = Board()
-print(board.return_legal_moves(1, (2, 3)))
+print(board.return_legal_moves(2, (2, 3)))
