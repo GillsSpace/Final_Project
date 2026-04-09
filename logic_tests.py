@@ -25,3 +25,6 @@ for _ in range(100):
         board.render_terminal()
 et = time.time()
 print(f"Average time per game: {(et - st) / 100:.4f} seconds")
+
+import torch
+

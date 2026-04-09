@@ -1,6 +1,6 @@
 import random
 
-from gym_backgammon.envs.backgammon import Backgammon
+from gym_backgammon.envs.backgammon import Backgammon # pyright: ignore[reportMissingImports]
 
 def rollDice() -> tuple[int, int]:
     """Rolls two six-sided dice and returns the results as a tuple."""
@@ -264,6 +264,15 @@ class Board:
     def is_game_over(self) -> bool:
         """Checks if the game is over."""
         return self.positions[26] == 15 or self.positions[27] == 15
+
+    def get_winner(self) -> int:
+        """Returns the winner of the game, or 0 if there is no winner yet."""
+        if self.positions[26] == 15:
+            return 1
+        elif self.positions[27] == 15:
+            return 2
+        else:
+            return 0
 
     def _return_gym_transform(self):
         """Returns a transformed version of the board for use in a gym environment."""
