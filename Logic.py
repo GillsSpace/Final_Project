@@ -2,10 +2,16 @@ import random
 
 from gym_backgammon.envs.backgammon import Backgammon # pyright: ignore[reportMissingImports]
 
-def rollDice() -> tuple[int, int]:
+ROLLS = [(1,1),(1,2),(1,3),(1,4),(1,5),(1,6),(2,2),(2,3),(2,4),(2,5),(2,6),(3,3),(3,4),(3,5),(3,6),(4,4),(4,5),(4,6),(5,5),(5,6),(6,6)]
+
+def rollDice(first=False) -> tuple[int, int]:
     """Rolls two six-sided dice and returns the results as a tuple."""
     num1 = random.randint(1, 6)
     num2 = random.randint(1, 6)
+    if first and num1 == num2:
+        while num1 == num2:
+            num1 = random.randint(1, 6)
+            num2 = random.randint(1, 6)
     return (num1, num2)
 
 class Board:
@@ -315,8 +321,8 @@ class Board:
             elif men >= 3:
                 j1 = [0,0,0,0]
                 j2 = [1,1,1,(men-3)/2]
-            X[i:i+3] = j1
-            X[i+98:i+101] = j2
+            X[(i*4):(i*4)+4] = j1
+            X[(i*4)+98:(i*4)+102] = j2
 
         X[96] = self.positions[24]/2
         X[97] = self.positions[26]/15
@@ -325,6 +331,14 @@ class Board:
         X[195] = self.positions[27]/15
 
         turn = [1,0] if player == 1 else [0,1]
-        X[196:197] = turn
+        X[196:198] = turn
 
         return X
+    
+class SimpleBoard:
+    def __init__(self,positions,pip,bear_off_status):
+        self.pos = positions
+        self.pip = pip
+        self.bos = bear_off_status
+
+
