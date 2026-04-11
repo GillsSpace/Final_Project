@@ -56,7 +56,7 @@ class TDModel(torch.nn.Module):
 
         with torch.no_grad():
             obs_tensor = torch.tensor(obs_list, dtype=torch.float32)
-            evals = self.forward(obs_tensor).squeeze(dim=-1).tolist()
+            evals = self.forward(obs_tensor).squeeze(dim=-1).tolist() #Suggested optimization by Gemini
             
         if player == 1:
             idx = np.argmax(evals)
@@ -65,7 +65,7 @@ class TDModel(torch.nn.Module):
 
         return evals[idx], moves[idx], base_obs, obs_list[idx]
 
-EPOCHS = 100000
+EPOCHS = 1000
 LAMBDA = 0.8
 ALPHA = 0.001
 
