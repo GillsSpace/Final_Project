@@ -63,7 +63,11 @@ The second risk is likely the scope of the environment itself. Backgammon is a w
 
 ## Ethics Statement:
 
-TBD: 
+We feel that backgammon-playing agent is a low-stakes application; hopefully, nobody is denied a loan or misdiagnosed because our bot plays poorly. The direct beneficiaries would be anyone hoping to learn more about how self-play reinforcement learning works, in a playful manner with a classical board game.
+
+The groups most likely to be excluded from usage or benefit would be individuals not interested in either subject matter. However a bigger concern might be that such an algorithm can be misused for online cheating, especially if money is involved. Backgammon is known for having a serious online betting scene. If the performance of our model is sufficiently strong, it could be used to defraud opponents. We estimate this risk to be low for our project specifically, because (a) our agent will almost certaintly not achieve perfomance of a calibre that can defeat serious players, and (b) much more powerfull open-source backgammon engines (GNU Backgammon, for instance) already are freely available. A bad actor has stronger alternatives available than a class project.
+
+Therefor we feel confident in stating our project as a net positive. Overall, projects examining classical games like backgammon are a great source of transferable understanding of RL methods. Other students might then later apply this knowledge to higher-stakes domains. If such domains turn out to be harmful, we would have to revisit our project's framing. As of now, we believe that the marginal harm is essentially zero given the existing landscape of much stronger engines.
 
 ## Tentative Timeline:
 
