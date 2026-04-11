@@ -1,3 +1,4 @@
 /gym-backgammon
 /.venv
 /__pycache__
+*.out
