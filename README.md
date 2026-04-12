@@ -40,11 +40,25 @@ Part of this project is an attempt to answer if this is the optimal representati
 
 ## Planned Deliverables:
 
-TBD:
+We will have three main deliverables:
+
+(1) A GitHub repo containing the implementation of the agent. This will include an implementation of the backgammon game environment, a training pipeline and evaluation, and clear documentation for reproducibility.
+
+(2) A fully trained model that can play complete games of backgammon.
+
+(3) A Jupyter Notebook that will import the trained model and demonstrate an example gameplay between the model and opponents (other backgammon agents found online). We will also compare the model's moves against that of other models, analyzing when it over/underperforms. 
+
+**Evaluation:** We will evaluate the effectiveness of our agent with several metrics. For example, we can measure the win rate against baseline models (for example a random-guessing agent) or benchmark models. As mentioned above, we will also compare the agent's moves against that of benchmarks and bots. 
+
+**Full Success:** If everything works as planned, we will have a fully-working backgammon agent with comparable performance against benchmark models like GNUBG. 
+
+**Partial Success:** As will be mentioned later in the risk statement, there is a chance that the training will not converge with our time/resources, and we will have limited performance. Even in this case, we will deliver a working pipeline that trains an agent, even if performance is limited. We will provide analysis of why things didn't go as well, and what improvements could be made with more time and compute. We will also hopefully outperform basic agents (for example an agent the plays randomly). 
 
 ## Resources Required: 
 
-TBD:
+This project will not rely on a traditional dataset, since we are implementing reinforcement learning. However, we will use gym-backgammon, a package that will allow us to generate legal moves in an efficient manner. We will also use known benchmarks such as GNUBG (https://reayd-falmouth.itch.io/gnubg-nn-pypi) for comparing and validating our agent.
+
+For computing power, we plan to use local machines for training, though we are also considering using the school's ada cluster or Google Colab if training using our local machines is too time-consuming. 
 
 ## Learning Objectives:
 
