@@ -1,4 +1,5 @@
 import random
+import gnubg_nn as gnubg
 
 from gym_backgammon.envs.backgammon import Backgammon # pyright: ignore[reportMissingImports]
 
@@ -21,7 +22,7 @@ class Board:
         # index 24 to 25 represents number of checkers on the bar - index 24 for P1, index 25 for P2
         # index 26 to 27 represents number of checkers off - index 26 for P1, index 27 for P2
         self.pip = (167,167) if position_list is None else self.calc_pips()
-        self.bear_off_status = (False, False)
+        self.bear_off_status = (False, False) if position_list is None else self.calc_bear_off_status()
     
     def calc_pips(self) -> tuple[int, int]:
         """Calculates the total pips for both players."""
@@ -334,7 +335,33 @@ class Board:
         X[196:198] = turn
 
         return X
-    
+
+    def _return_gnubg_transform(self, player_on_roll:int):
+
+        p1_rep = [abs(p) if p < 0 else 0 for p in reversed(self.positions[:24])] + [abs(self.positions[24])]
+        p2_rep = [p if p > 0 else 0 for p in self.positions[:24]] + [abs(self.positions[25])]
+
+        return [p1_rep,p2_rep] if player_on_roll == 2 else [p2_rep,p1_rep]
+        
+    def _gnubg_moves_conversion(self, gnubg_moves, player: int):
+        translated_moves = []
+        
+        for board_id, moves in gnubg_moves:
+            internal_move = [
+                (
+                    'bar' if src == 25 else (src - 1 if player == 2 else 24 - src),
+                    'off' if dest == 0 else (dest - 1 if player == 2 else 24 - dest)
+                )
+                for src, dest in moves
+            ]
+            translated_moves.append(internal_move)
+            
+        return translated_moves
+
+    def return_win_probs(self, player_on_roll:int):
+        gnu_rep = self._return_gnubg_transform(player_on_roll=player_on_roll)
+        return gnubg.probabilities(gnu_rep,gnubg.p_prune)
+
 class SimpleBoard:
     def __init__(self,positions,pip,bear_off_status):
         self.pos = positions
