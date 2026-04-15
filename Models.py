@@ -73,6 +73,53 @@ class Model_v1(torch.nn.Module):
 
         return evals[idx], moves[idx], base_obs, obs_list[idx]
 
+    def predict_all(self, board:Logic.Board, dice:tuple[int, int], player:int):
+        moves = board.return_legal_moves(player, dice)
+        next_player = 1 if player == 2 else 2
+        base_obs = board._return_tesauro_transform(player)
+
+        if len(moves) == 0:
+            obs = board._return_tesauro_transform(next_player)
+            return self.forward(torch.tensor(obs, dtype=torch.float32)).item(), [], base_obs, obs
+        
+        saved_positions = list(board.positions) 
+        saved_pip = list(board.pip) 
+        saved_bos = list(board.bear_off_status)
+
+        if len(moves) == 1:
+            board.execute_move(player, moves[0])
+            obs = board._return_tesauro_transform(next_player)
+            board.positions = list(saved_positions)
+            board.pip = list(saved_pip)
+            board.bear_off_status = list(saved_bos)
+            return self.forward(torch.tensor(obs, dtype=torch.float32)).item(), moves[0], base_obs, obs
+
+        obs_list = [None] * len(moves)
+        for i in range(len(moves)):
+            board.positions = list(saved_positions)
+            board.pip = list(saved_pip) if isinstance(saved_pip, list) else saved_pip
+            board.bear_off_status = list(saved_bos) if isinstance(saved_bos, list) else saved_bos
+            
+            move = moves[i]
+            board.execute_move(player, move)
+            
+            obs_list[i] = board._return_tesauro_transform(next_player)
+
+        board.positions = list(saved_positions)
+        board.pip = list(saved_pip) if isinstance(saved_pip, list) else saved_pip
+        board.bear_off_status = list(saved_bos) if isinstance(saved_bos, list) else saved_bos
+
+        with torch.no_grad():
+            obs_tensor = torch.tensor(obs_list, dtype=torch.float32)
+            evals = self.forward(obs_tensor).squeeze(dim=-1).tolist() #Suggested optimization by Gemini
+            
+        if player == 1:
+            ranks = reversed(np.argsort(evals))
+        else:
+            ranks = np.argsort(evals)
+
+        return evals, moves, ranks
+
     def run_training_game(self):
         board = Logic.Board()
         roll = Logic.rollDice(first=True)
