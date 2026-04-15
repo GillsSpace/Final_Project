@@ -5,6 +5,39 @@ import numpy as np
 import time
 import pickle
 
+class BaseModel(torch.nn.Module):
+    def __init__(self):
+        super(BaseModel,self).__init__()
+
+        self.time_trained = 0
+        self.epochs_trained = 0
+        self.history_loss = []
+        self.history_loss_augmented = []
+        self.history_td_error = []
+        self.history_time_trained = []
+        self.history_accuracy = []
+
+        def forward(rep):
+            raise NotImplementedError("Subclasses must implement forward()")
+        
+        def predict(board:Logic.Board,player,roll):
+            raise NotImplementedError("Subclasses must implement predict()")
+        
+        def predict_all(board:Logic.Board,player,roll):
+            raise NotImplementedError("Subclasses must implement predict_all()")
+        
+        def transform(board:Logic.Board,player):
+            raise NotImplementedError("Subclasses must implement transform()")
+        
+        def train_epoch():
+            raise NotImplementedError("Subclasses must implement train_epoch()")
+        
+        def run_diagnostic():
+            pass
+
+        def run_history_update_game():
+            pass
+
 class Model_v1(torch.nn.Module):
     def __init__(self, trace_decay=0.8, learning_rate=0.001):
         super(Model_v1, self).__init__()

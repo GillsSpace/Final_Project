@@ -358,7 +358,7 @@ class Board:
             
         return translated_moves
 
-    def return_win_probs(self, player_on_roll:int):
+    def return_gnubg_win_probs(self, player_on_roll:int):
         gnu_rep = self._return_gnubg_transform(player_on_roll=player_on_roll)
         return gnubg.probabilities(gnu_rep,gnubg.p_prune)
 
