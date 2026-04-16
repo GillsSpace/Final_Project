@@ -118,7 +118,7 @@ class Model_BasicTD(BaseModel):
             post_repr = board._return_tesauro_transform(next_player)
             post_eval = (self.forward(torch.tensor(post_repr, dtype=torch.float32)).item(), ) * 3
             board.positions = list(saved_positions)
-            return [], pre_eval, [post_eval], pre_repr, [post_repr]
+            return list(moves[0]), pre_eval, [post_eval], pre_repr, [post_repr]
 
         post_repr_list = [None] * len(moves)
 
