@@ -63,12 +63,12 @@ class Model_BasicTD(BaseModel):
         moves = board.return_legal_moves(player, roll)
         next_player = 3 - player
         pre_repr = board._return_tesauro_transform(player)
-        pre_eval = (self.forward(torch.tensor(pre_repr, dtype=torch.float32)).item(), ) * 3
+        pre_eval = (self.forward(torch.tensor(pre_repr, dtype=torch.float32)).item(), 0, 0)
 
         if len(moves) == 0:
             post_repr = board._return_tesauro_transform(next_player)
             with torch.no_grad():
-                post_eval = (self.forward(torch.tensor(post_repr, dtype=torch.float32)).item(), ) * 3
+                post_eval = (self.forward(torch.tensor(post_repr, dtype=torch.float32)).item(), 0, 0)
             return [], pre_eval, post_eval, pre_repr, post_repr
         
         saved_positions = list(board.positions) 
@@ -77,7 +77,7 @@ class Model_BasicTD(BaseModel):
             board.execute_move(player, moves[0])
             post_repr = board._return_tesauro_transform(next_player)
             with torch.no_grad():
-                post_eval = (self.forward(torch.tensor(post_repr, dtype=torch.float32)).item(), ) * 3
+                post_eval = (self.forward(torch.tensor(post_repr, dtype=torch.float32)).item(), 0, 0)
             board.positions = list(saved_positions)
             return list(moves[0]), pre_eval, post_eval, pre_repr, post_repr
 
@@ -93,7 +93,7 @@ class Model_BasicTD(BaseModel):
             post_repr_tensor = torch.tensor(post_repr_list, dtype=torch.float32)
             post_eval_list = self.forward(post_repr_tensor).squeeze(dim=-1).tolist()
             win_probs = list(post_eval_list)
-            post_eval_list = [(item, )*3 for item in post_eval_list]
+            post_eval_list = [(item, 0, 0) for item in post_eval_list]
 
         if player == 1:
             idx = np.argmax(win_probs)
@@ -106,12 +106,12 @@ class Model_BasicTD(BaseModel):
         moves = board.return_legal_moves(player, roll)
         next_player = 3 - player
         pre_repr = board._return_tesauro_transform(player)
-        pre_eval = (self.forward(torch.tensor(pre_repr, dtype=torch.float32)).item(), ) * 3
+        pre_eval = (self.forward(torch.tensor(pre_repr, dtype=torch.float32)).item(), 0, 0)
 
         if len(moves) == 0:
             post_repr = board._return_tesauro_transform(next_player)
             with torch.no_grad():
-                post_eval = (self.forward(torch.tensor(post_repr, dtype=torch.float32)).item(), ) * 3
+                post_eval = (self.forward(torch.tensor(post_repr, dtype=torch.float32)).item(), 0, 0)
             return [], pre_eval, [post_eval], pre_repr, [post_repr]
         
         saved_positions = list(board.positions) 
@@ -120,7 +120,7 @@ class Model_BasicTD(BaseModel):
             board.execute_move(player, moves[0])
             post_repr = board._return_tesauro_transform(next_player)
             with torch.no_grad():
-                post_eval = (self.forward(torch.tensor(post_repr, dtype=torch.float32)).item(), ) * 3
+                post_eval = (self.forward(torch.tensor(post_repr, dtype=torch.float32)).item(), 0, 0)
             board.positions = list(saved_positions)
             return list(moves[0]), pre_eval, [post_eval], pre_repr, [post_repr]
 
@@ -135,7 +135,7 @@ class Model_BasicTD(BaseModel):
         with torch.no_grad():
             post_repr_tensor = torch.tensor(post_repr_list, dtype=torch.float32)
             post_eval_list = self.forward(post_repr_tensor).squeeze(dim=-1).tolist()
-            post_eval_list = [(item,)*3 for item in post_eval_list]
+            post_eval_list = [(item, 0, 0) for item in post_eval_list]
 
         return moves, pre_eval, post_eval_list, pre_repr, post_repr_list
         
