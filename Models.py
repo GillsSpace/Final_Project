@@ -67,7 +67,8 @@ class Model_BasicTD(BaseModel):
 
         if len(moves) == 0:
             post_repr = board._return_tesauro_transform(next_player)
-            post_eval = (self.forward(torch.tensor(post_repr, dtype=torch.float32)).item(), ) * 3
+            with torch.no_grad():
+                post_eval = (self.forward(torch.tensor(post_repr, dtype=torch.float32)).item(), ) * 3
             return [], pre_eval, post_eval, pre_repr, post_repr
         
         saved_positions = list(board.positions) 
@@ -75,7 +76,8 @@ class Model_BasicTD(BaseModel):
         if len(moves) == 1:
             board.execute_move(player, moves[0])
             post_repr = board._return_tesauro_transform(next_player)
-            post_eval = (self.forward(torch.tensor(post_repr, dtype=torch.float32)).item(), ) * 3
+            with torch.no_grad():
+                post_eval = (self.forward(torch.tensor(post_repr, dtype=torch.float32)).item(), ) * 3
             board.positions = list(saved_positions)
             return list(moves[0]), pre_eval, post_eval, pre_repr, post_repr
 
@@ -108,7 +110,8 @@ class Model_BasicTD(BaseModel):
 
         if len(moves) == 0:
             post_repr = board._return_tesauro_transform(next_player)
-            post_eval = (self.forward(torch.tensor(post_repr, dtype=torch.float32)).item(), ) * 3
+            with torch.no_grad():
+                post_eval = (self.forward(torch.tensor(post_repr, dtype=torch.float32)).item(), ) * 3
             return [], pre_eval, [post_eval], pre_repr, [post_repr]
         
         saved_positions = list(board.positions) 
@@ -116,7 +119,8 @@ class Model_BasicTD(BaseModel):
         if len(moves) == 1:
             board.execute_move(player, moves[0])
             post_repr = board._return_tesauro_transform(next_player)
-            post_eval = (self.forward(torch.tensor(post_repr, dtype=torch.float32)).item(), ) * 3
+            with torch.no_grad():
+                post_eval = (self.forward(torch.tensor(post_repr, dtype=torch.float32)).item(), ) * 3
             board.positions = list(saved_positions)
             return list(moves[0]), pre_eval, [post_eval], pre_repr, [post_repr]
 

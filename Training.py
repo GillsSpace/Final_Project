@@ -45,6 +45,7 @@ for epoch in range(EPOCHS):
 et = time.time()
 print(f"Training Loop Finished in {et-st} seconds Average EPOCH time this loop = {(et-st)/EPOCHS}.")
 
+### SAVE FINAL MODEL ############################
 print(f"Saving model to {MODEL}...")
 Models.Model_Loader.save_model(model, MODEL)
 
