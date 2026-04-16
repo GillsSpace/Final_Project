@@ -1,6 +1,6 @@
 import gnubg_nn as gnubg
 import Logic
-
+import time
 
 def test_gnubg_conversions():
     POSITION_SET_A = {
