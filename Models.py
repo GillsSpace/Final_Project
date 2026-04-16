@@ -90,11 +90,13 @@ class Model_BasicTD(BaseModel):
         with torch.no_grad():
             post_repr_tensor = torch.tensor(post_repr_list, dtype=torch.float32)
             post_eval_list = self.forward(post_repr_tensor).squeeze(dim=-1).tolist()
-            
+            win_probs = list(post_eval_list)
+            post_eval_list = [(item, )*3 for item in post_eval_list]
+
         if player == 1:
-            idx = np.argmax(post_eval_list)
+            idx = np.argmax(win_probs)
         else:
-            idx = np.argmin(post_eval_list)
+            idx = np.argmin(win_probs)
 
         return moves[idx], pre_eval, post_eval_list[idx], pre_repr, post_repr_list[idx]
         
@@ -107,7 +109,7 @@ class Model_BasicTD(BaseModel):
         if len(moves) == 0:
             post_repr = board._return_tesauro_transform(next_player)
             post_eval = (self.forward(torch.tensor(post_repr, dtype=torch.float32)).item(), ) * 3
-            return [], pre_eval, post_eval, pre_repr, post_repr
+            return [], pre_eval, [post_eval], pre_repr, [post_repr]
         
         saved_positions = list(board.positions) 
 
@@ -116,7 +118,7 @@ class Model_BasicTD(BaseModel):
             post_repr = board._return_tesauro_transform(next_player)
             post_eval = (self.forward(torch.tensor(post_repr, dtype=torch.float32)).item(), ) * 3
             board.positions = list(saved_positions)
-            return [], pre_eval, post_eval, pre_repr, post_repr
+            return [], pre_eval, [post_eval], pre_repr, [post_repr]
 
         post_repr_list = [None] * len(moves)
 
@@ -129,6 +131,7 @@ class Model_BasicTD(BaseModel):
         with torch.no_grad():
             post_repr_tensor = torch.tensor(post_repr_list, dtype=torch.float32)
             post_eval_list = self.forward(post_repr_tensor).squeeze(dim=-1).tolist()
+            post_eval_list = [(item,)*3 for item in post_eval_list]
 
         return moves, pre_eval, post_eval_list, pre_repr, post_repr_list
         
@@ -324,7 +327,7 @@ class Model_Loader:
             pickle.dump(model, f)
 
     @staticmethod
-    def load_model(filename:str) -> object:
+    def load_model(filename:str) -> BaseModel:
         with open(filename, 'rb') as f:
             model = pickle.load(f)
         return model
