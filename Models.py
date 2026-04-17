@@ -4,6 +4,7 @@ import Logic
 import numpy as np
 import time
 import pickle
+import gnubg_nn as gnubg
 
 class BaseModel(torch.nn.Module):
     def __init__(self):
@@ -17,6 +18,7 @@ class BaseModel(torch.nn.Module):
         self.history_loss_augmented = []
         self.history_td_error = []
         self.history_accuracy = []
+        self.history_game_length = []
 
     def forward(self, rep):
         raise NotImplementedError("Subclasses must implement forward()")
@@ -37,8 +39,119 @@ class BaseModel(torch.nn.Module):
         pass
 
     def run_history_update_game(self):
-        pass
+        avg_loss = 0
+        avg_loss_augmented = 0
+        avg_td_error = 0
+        avg_accuracy = 0
+        avg_game_length = 0
 
+        num_games = 10
+        for _ in range(num_games): # average over 10 games
+            board = Logic.Board()
+            roll = Logic.rollDice(first=True)
+            player = 1 if roll[0] > roll[1] else 2
+
+            total_loss = 0
+            total_loss_augmented = 0
+            total_td_error = 0
+            total_accuracy = 0
+            game_length = 0
+
+            while not board.is_game_over():
+                action, pre_eval, post_eval, base_obs, next_obs = self.predict(board,player,roll)
+                model_win = pre_eval[0]
+                model_gammon = pre_eval[1]
+                model_backgammon = pre_eval[2]
+
+                gnubg_probs = board.return_gnubg_win_probs(player)
+                gnu_win = gnubg_probs[0] if player == 1 else 1 - gnubg_probs[0]
+                gnu_gammon = gnubg_probs[1] if player == 1 else gnubg_probs[3]
+                gnu_backgammon = gnubg_probs[2] if player == 1 else gnubg_probs[4]
+
+                # print(f"Model Eval - Win: {model_win:.4f}, Gammon: {model_gammon:.4f}, Backgammon: {model_backgammon:.4f} |"
+                #        f" GNUBG Eval - Win: {gnu_win:.4f}, Gammon: {gnu_gammon:.4f}, Backgammon: {gnu_backgammon:.4f}")
+
+                loss = (model_win - gnu_win) ** 2
+                loss_augmented = (
+                    (model_win - gnu_win) ** 2 +
+                    (model_gammon - gnu_gammon) ** 2 +
+                    (model_backgammon - gnu_backgammon) ** 2
+                )
+
+                # if loss > 1:
+                #     print("\nLOSS EXPLOSION DETECTED")
+                #     print(f"type(gnubg_probs[0]): {type(gnubg_probs[0])}")
+                #     print(f"gnubg_probs: {gnubg_probs}")
+                #     print(f"model_win: {model_win}")
+                #     print(f"gnu_win: {gnu_win}")
+                #     print(f"loss: {loss}")
+                #     print(f"board: {board.positions}")
+                #     print(f"player: {player}")
+                #     print(f"roll: {roll}")
+                #     print(f"pre_eval: {pre_eval}")
+
+                total_loss += loss if loss <= 1 else 1
+
+                total_loss_augmented += loss_augmented if loss_augmented <= 1 else 1
+
+                if len(action) > 0:
+                    saved_positions = list(board.positions) 
+                    # get GNUBG best move
+                    gnu_rep = board._return_gnubg_transform(player)
+                    flat = gnubg.pub_best_move(gnu_rep, roll[0], roll[1])
+                    best_gnu_move = [
+                        (flat[i], flat[i+1])
+                        for i in range(0, len(flat), 2)
+                    ]
+                    best_gnu_move = board._gnubg_moves_conversion([(None, best_gnu_move)], player)[0]
+                    # print(f"Model Move: {action}, GNUBG Best Move: {best_gnu_move}, flat: {flat}")
+                    board.execute_move(player, best_gnu_move)
+                    after_gnu_rep = board._return_tesauro_transform(3-player)
+                    # print(f"Board after model move: {next_obs}, Board after GNUBG move: {after_gnu_rep}")
+
+                    if next_obs == after_gnu_rep:
+                        total_accuracy += 1
+                    board.positions = list(saved_positions)
+
+                self.zero_grad()
+                v_s = self.forward(torch.tensor(base_obs, dtype=torch.float32))
+
+                with torch.no_grad():
+                    if board.is_game_over():
+                        reward = int(board.get_winner() == 1)
+                        td_error = reward - v_s.item()
+                    else:
+                        v_s_next = self.forward(torch.tensor(next_obs, dtype=torch.float32))
+                        td_error = v_s_next.item() - v_s.item()
+
+                    total_td_error += abs(td_error)
+
+                board.execute_move(player,action)
+                player = 1 if player == 2 else 2
+                roll = Logic.rollDice()
+                game_length += 1
+
+            if game_length > 0:
+                # print(f"Total error for this game: {total_loss:.4f}, Augmented Loss: {total_loss_augmented:.4f}, TD Error: {total_td_error:.4f}, Accuracy: {total_accuracy}, Game Length: {game_length}")
+                avg_loss += total_loss / game_length
+                avg_loss_augmented += total_loss_augmented / game_length
+                avg_td_error += total_td_error / game_length
+                avg_accuracy += total_accuracy / game_length
+                avg_game_length += game_length
+
+        avg_loss /= num_games
+        avg_loss_augmented /= num_games
+        avg_td_error /= num_games
+        avg_accuracy /= num_games
+        avg_game_length /= num_games
+
+        print(f"Average Loss: {avg_loss:.4f}, Average Augmented Loss: {avg_loss_augmented:.4f}, Average TD Error: {avg_td_error:.4f}, Average Accuracy: {avg_accuracy:.4f}, Average Game Length: {avg_game_length:.2f}")
+
+        self.history_loss.append(avg_loss)
+        self.history_loss_augmented.append(avg_loss_augmented)
+        self.history_td_error.append(avg_td_error)
+        self.history_accuracy.append(avg_accuracy)
+        self.history_game_length.append(avg_game_length)
 
 class Model_BasicTD(BaseModel):
     def __init__(self):

@@ -1,5 +1,6 @@
 import random
 import gnubg_nn as gnubg
+import matplotlib.pyplot as plt
 
 from gym_backgammon.envs.backgammon import Backgammon # pyright: ignore[reportMissingImports]
 
@@ -349,8 +350,8 @@ class Board:
         for board_id, moves in gnubg_moves:
             internal_move = [
                 (
-                    'bar' if src == 25 else (src - 1 if player == 2 else 24 - src),
-                    'off' if dest == 0 else (dest - 1 if player == 2 else 24 - dest)
+                    'bar' if src == 24 else (src if player == 2 else 23 - src),
+                    'off' if dest == -1 else (dest if player == 2 else 23 - dest)
                 )
                 for src, dest in moves
             ]
@@ -369,3 +370,46 @@ class SimpleBoard:
         self.bos = bear_off_status
 
 
+def plot_training_history(model):
+    x = range(len(model.history_loss))
+
+    plt.figure()
+    plt.plot(x, model.history_loss)
+    plt.title("Loss (Win Prob vs GNUBG)")
+    plt.xlabel("Evaluation Step")
+    plt.ylabel("Loss")
+    plt.grid()
+    plt.show()
+
+    plt.figure()
+    plt.plot(x, model   .history_loss_augmented)
+    plt.title("Augmented Loss (Win + Gammon + Backgammon)")
+    plt.xlabel("Evaluation Step")
+    plt.ylabel("Loss")
+    plt.grid()
+    plt.show()
+
+    plt.figure()
+    plt.plot(x, model.history_td_error)
+    plt.title("TD Error (Squared)")
+    plt.xlabel("Evaluation Step")
+    plt.ylabel("TD Error")
+    plt.grid()
+    plt.show()
+
+    plt.figure()
+    plt.plot(x, model.history_accuracy)
+    plt.title("Move Accuracy vs GNUBG")
+    plt.xlabel("Evaluation Step")
+    plt.ylabel("Accuracy")
+    plt.ylim(0, 1)
+    plt.grid()
+    plt.show()
+
+    plt.figure()
+    plt.plot(x, model.history_game_length)
+    plt.title("Average Game Length")
+    plt.xlabel("Evaluation Step")
+    plt.ylabel("Turns")
+    plt.grid()
+    plt.show()
