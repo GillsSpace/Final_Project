@@ -11,7 +11,7 @@ from Logic import plot_training_history
 os.environ["CUDA_VISIBLE_DEVICES"] = ""
 
 EPOCHS =  10 * 5000
-MODEL = 'BasicTD_001_Shingo.pickle'
+MODEL = 'BasicTD_001.pickle'
 MODEL_TYPE = Models.Model_BasicTD
 INPUT_SIZE = (1,198)
 

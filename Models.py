@@ -124,7 +124,7 @@ class BaseModel(torch.nn.Module):
                         v_s_next = self.forward(torch.tensor(next_obs, dtype=torch.float32))
                         td_error = v_s_next.item() - v_s.item()
 
-                    total_td_error += abs(td_error)
+                    total_td_error += td_error ** 2
 
                 board.execute_move(player,action)
                 player = 1 if player == 2 else 2
