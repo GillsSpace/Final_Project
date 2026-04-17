@@ -1,6 +1,7 @@
 import gnubg_nn as gnubg
 import Logic
 import time
+import Models
 
 def test_gnubg_conversions():
     POSITION_SET_A = {
@@ -47,5 +48,11 @@ def test_gnubg_conversions():
     print()
     print(f'Optimal GNUBG move for P2 w/ roll (2,3): {gnubg.pub_best_move(board_gnu_2,2,3)}')
 
+def test_training_loop(model):
+    model = Models.Model_Loader.load_model(model)
+    model.train_epoch()
+
+
 if __name__ == "__main__":
-    test_gnubg_conversions()
+    MODEL = 'BasicTD_001.pickle'
+    test_training_loop(MODEL)

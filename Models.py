@@ -41,18 +41,18 @@ class BaseModel(torch.nn.Module):
 
 
 class Model_BasicTD(BaseModel):
-    def __init__(self):
+    def __init__(self, h1_size=120, h2_size=80):
         super(Model_BasicTD, self).__init__()
 
         self.trace_decay = 0.8
         self.learning_rate = 0.001
 
         self.pipeline = torch.nn.Sequential(
-            torch.nn.Linear(198, 120),
+            torch.nn.Linear(198, h1_size),
             torch.nn.ReLU(),
-            torch.nn.Linear(120, 80),
+            torch.nn.Linear(h1_size, h2_size),
             torch.nn.ReLU(),
-            torch.nn.Linear(80, 1),
+            torch.nn.Linear(h2_size, 1),
             torch.nn.Sigmoid()
         )
 
