@@ -11,7 +11,8 @@ from Logic import plot_training_history
 os.environ["CUDA_VISIBLE_DEVICES"] = ""
 
 EPOCHS =  10 * 5000
-MODEL = 'BasicTD_001.pickle'
+MODEL_NAME = 'BasicTD_001'
+MODEL = f'{MODEL_NAME}.pickle'
 MODEL_TYPE = Models.Model_BasicTD
 INPUT_SIZE = (1,198)
 
@@ -46,7 +47,7 @@ for epoch in range(EPOCHS):
 et = time.time()
 print(f"Training Loop Finished in {et-st} seconds Average EPOCH time this loop = {(et-st)/EPOCHS}.")
 
-plot_training_history(model)
+plot_training_history(model, MODEL_NAME)
 
 ### SAVE FINAL MODEL ############################
 print(f"Saving model to {MODEL}...")
