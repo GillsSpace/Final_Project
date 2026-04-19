@@ -1,6 +1,7 @@
 import random
 import gnubg_nn as gnubg
 import matplotlib.pyplot as plt
+import os
 
 from gym_backgammon.envs.backgammon import Backgammon # pyright: ignore[reportMissingImports]
 
@@ -370,8 +371,19 @@ class SimpleBoard:
         self.bos = bear_off_status
 
 
-def plot_training_history(model):
+def plot_training_history(model, model_name, show=True):
     x = range(len(model.history_loss))
+
+    # create directory plots/model_name/
+    save_dir = os.path.join("plots", model_name)
+    os.makedirs(save_dir, exist_ok=True)
+
+    def save_plot(filename):
+        path = os.path.join(save_dir, filename)
+        plt.savefig(path)
+        if show:
+            plt.show()
+        plt.close()
 
     plt.figure()
     plt.plot(x, model.history_loss)
@@ -379,7 +391,7 @@ def plot_training_history(model):
     plt.xlabel("Evaluation Step")
     plt.ylabel("Loss")
     plt.grid()
-    plt.show()
+    save_plot("loss.png")
 
     plt.figure()
     plt.plot(x, model   .history_loss_augmented)
@@ -387,7 +399,7 @@ def plot_training_history(model):
     plt.xlabel("Evaluation Step")
     plt.ylabel("Loss")
     plt.grid()
-    plt.show()
+    save_plot("loss_augmented.png")
 
     plt.figure()
     plt.plot(x, model.history_td_error)
@@ -395,7 +407,7 @@ def plot_training_history(model):
     plt.xlabel("Evaluation Step")
     plt.ylabel("TD Error")
     plt.grid()
-    plt.show()
+    save_plot("td_error.png")
 
     plt.figure()
     plt.plot(x, model.history_accuracy)
@@ -404,7 +416,7 @@ def plot_training_history(model):
     plt.ylabel("Accuracy")
     plt.ylim(0, 1)
     plt.grid()
-    plt.show()
+    save_plot("accuracy.png")
 
     plt.figure()
     plt.plot(x, model.history_game_length)
@@ -412,4 +424,4 @@ def plot_training_history(model):
     plt.xlabel("Evaluation Step")
     plt.ylabel("Turns")
     plt.grid()
-    plt.show()
+    save_plot("game_length.png")
