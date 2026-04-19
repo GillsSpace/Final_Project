@@ -272,8 +272,11 @@ class Model_BasicTD(BaseModel):
 class Model_GnubgSupervised(Model_BasicTD):
     def __init__(self, h1_size=120, h2_size=80):
         super(Model_GnubgSupervised, self).__init__(h1_size, h2_size)
-        # same architecture and hyperparams as Model_BasicTD
-        # only difference: td target comes from gnubg instead of model's own next-state estimate
+        # same architecture as Model_BasicTD
+        # supervised regression against gnubg win probs with adam + mse
+        self.learning_rate = 0.001
+        self.optimizer = torch.optim.Adam(self.parameters(), lr=self.learning_rate)
+        self.loss_fn = torch.nn.MSELoss()
 
     def train_epoch(self):
         start_time = time.time()
@@ -281,39 +284,28 @@ class Model_GnubgSupervised(Model_BasicTD):
         roll = Logic.rollDice(first=True)
         player = 1 if roll[0] > roll[1] else 2
 
-        traces = {name: torch.zeros_like(param) for name, param in self.named_parameters()}
-
         while not board.is_game_over():
             action, pre_eval, post_eval, pre_repr, post_repr = self.predict(board, player, roll)
-            board.execute_move(player, action)
 
-            # player who just moved (pre_repr is from their perspective)
             mover = player
+            board.execute_move(player, action)
             player = 1 if player == 2 else 2
             roll = Logic.rollDice()
 
-            self.zero_grad()
+            # supervised target from gnubg, converted to p1 perspective
+            if board.is_game_over():
+                target = float(board.get_winner() == 1)
+            else:
+                gnubg_probs = board.return_gnubg_win_probs(mover)
+                gnu_win_for_mover = gnubg_probs[0]
+                target = gnu_win_for_mover if mover == 1 else 1 - gnu_win_for_mover
+
+            self.optimizer.zero_grad()
             v_s = self.forward(torch.tensor(pre_repr, dtype=torch.float32))
-            v_s.backward()
-
-            with torch.no_grad():
-                if board.is_game_over():
-                    # terminal state: gnubg not needed, use actual outcome
-                    reward = int(board.get_winner() == 1)
-                    td_error = reward - v_s.item()
-                else:
-                    # gnubg evaluates from mover's perspective
-                    # return_gnubg_win_probs(mover) puts mover first, so probs[0] is mover's win prob
-                    # model also outputs win prob for player 1, so convert accordingly
-                    gnubg_probs = board.return_gnubg_win_probs(mover)
-                    gnu_win_for_mover = gnubg_probs[0]
-                    gnu_win_p1 = gnu_win_for_mover if mover == 1 else 1 - gnu_win_for_mover
-                    td_error = gnu_win_p1 - v_s.item()
-
-                for name, p in self.named_parameters():
-                    if p.requires_grad and p.grad is not None:
-                        traces[name] = (self.trace_decay * traces[name]) + p.grad
-                        p.data += self.learning_rate * td_error * traces[name]
+            target_tensor = torch.tensor([target], dtype=torch.float32)
+            loss = self.loss_fn(v_s, target_tensor)
+            loss.backward()
+            self.optimizer.step()
 
         end_time = time.time()
         self.epochs_trained += 1
