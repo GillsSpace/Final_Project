@@ -21,8 +21,8 @@ def run_exhibition_game_terminal(model):
     print()
     print(f"Player {player} won opening roll with {roll}")
     while not board.is_game_over():
-        val, action, _, _ = model.predict(board,roll,player)
-        print(f"Player {player} with roll {roll} makes move {action} - ({val})...")
+        action, _, post_eval, _, _ = model.predict(board,player,roll)
+        print(f"Player {player} with roll {roll} makes move {action} - ({post_eval[0]:.4f})...")
         board.execute_move(player,action)
         board.render_terminal()
         print()
