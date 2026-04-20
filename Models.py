@@ -156,7 +156,8 @@ class Model_BasicTD(BaseModel):
         moves = board.return_legal_moves(player, roll)
         next_player = 3 - player
         pre_repr = board._return_tesauro_transform(player)
-        pre_eval = (self.forward(torch.tensor(pre_repr, dtype=torch.float32)).item(), 0, 0)
+        with torch.no_grad():
+            pre_eval = (self.forward(torch.tensor(pre_repr, dtype=torch.float32)).item(), 0, 0)
 
         if len(moves) == 0:
             post_repr = board._return_tesauro_transform(next_player)
@@ -199,7 +200,9 @@ class Model_BasicTD(BaseModel):
         moves = board.return_legal_moves(player, roll)
         next_player = 3 - player
         pre_repr = board._return_tesauro_transform(player)
-        pre_eval = (self.forward(torch.tensor(pre_repr, dtype=torch.float32)).item(), 0, 0)
+        with torch.no_grad():
+            pre_eval = (self.forward(torch.tensor(pre_repr, dtype=torch.float32)).item(), 0, 0)
+
 
         if len(moves) == 0:
             post_repr = board._return_tesauro_transform(next_player)
