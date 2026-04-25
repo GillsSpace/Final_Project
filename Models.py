@@ -46,7 +46,7 @@ class BaseModel(torch.nn.Module):
         avg_game_length = 0
 
         num_games = 10
-        for _ in range(num_games): # average over 10 games
+        for _ in range(num_games):
             board = Logic.Board()
             roll = Logic.rollDice(first=True)
             player = 1 if roll[0] > roll[1] else 2
@@ -79,7 +79,7 @@ class BaseModel(torch.nn.Module):
                 total_loss_augmented += loss_augmented if loss_augmented <= 1 else 1
 
                 if len(action) > 0:
-                    saved_positions = list(board.positions) 
+                    saved_positions = list(board.positions)
                     gnu_rep = board._return_gnubg_transform(player)
                     flat = gnubg.pub_best_move(gnu_rep, roll[0], roll[1])
                     best_gnu_move = [
@@ -88,7 +88,7 @@ class BaseModel(torch.nn.Module):
                     ]
                     best_gnu_move = board._gnubg_moves_conversion([(None, best_gnu_move)], player)[0]
                     board.execute_move(player, best_gnu_move)
-                    after_gnu_rep = board._return_tesauro_transform(3-player)
+                    after_gnu_rep = self.transform(board, 3-player)
 
                     if next_obs == after_gnu_rep:
                         total_accuracy += 1
@@ -203,7 +203,6 @@ class Model_BasicTD(BaseModel):
         with torch.no_grad():
             pre_eval = (self.forward(torch.tensor(pre_repr, dtype=torch.float32)).item(), 0, 0)
 
-
         if len(moves) == 0:
             post_repr = board._return_tesauro_transform(next_player)
             with torch.no_grad():
@@ -280,6 +279,219 @@ class Model_GnubgSupervised(Model_BasicTD):
         self.learning_rate = 0.001
         self.optimizer = torch.optim.Adam(self.parameters(), lr=self.learning_rate)
         self.loss_fn = torch.nn.MSELoss()
+
+    def train_epoch(self):
+        start_time = time.time()
+        board = Logic.Board()
+        roll = Logic.rollDice(first=True)
+        player = 1 if roll[0] > roll[1] else 2
+
+        while not board.is_game_over():
+            action, pre_eval, post_eval, pre_repr, post_repr = self.predict(board, player, roll)
+
+            mover = player
+            board.execute_move(player, action)
+            player = 1 if player == 2 else 2
+            roll = Logic.rollDice()
+
+            # supervised target from gnubg, converted to p1 perspective
+            if board.is_game_over():
+                target = float(board.get_winner() == 1)
+            else:
+                gnubg_probs = board.return_gnubg_win_probs(mover)
+                gnu_win_for_mover = gnubg_probs[0]
+                target = gnu_win_for_mover if mover == 1 else 1 - gnu_win_for_mover
+
+            self.optimizer.zero_grad()
+            v_s = self.forward(torch.tensor(pre_repr, dtype=torch.float32))
+            target_tensor = torch.tensor([target], dtype=torch.float32)
+            loss = self.loss_fn(v_s, target_tensor)
+            loss.backward()
+            self.optimizer.step()
+
+        end_time = time.time()
+        self.epochs_trained += 1
+        self.time_trained += (end_time - start_time)
+
+
+class Model_HandCrafted(BaseModel):
+    # gnubg-supervised training using 19 hand-crafted features
+    # instead of tesauro's 198-number encoding
+    # features: pip counts, pip diff, bear-off status, blots, owned points, primes, bar/off, turn flag
+    # ref: feature engineering experiment for csci 0451 final project
+
+    N_FEATURES = 19
+
+    def __init__(self, h1_size=64, h2_size=32):
+        super(Model_HandCrafted, self).__init__()
+
+        self.learning_rate = 0.001
+        self.loss_fn = torch.nn.MSELoss()
+
+        self.pipeline = torch.nn.Sequential(
+            torch.nn.Linear(self.N_FEATURES, h1_size),
+            torch.nn.ReLU(),
+            torch.nn.Linear(h1_size, h2_size),
+            torch.nn.ReLU(),
+            torch.nn.Linear(h2_size, 1),
+            torch.nn.Sigmoid()
+        )
+
+        # optimizer initialized after pipeline so all params are registered
+        self.optimizer = torch.optim.Adam(self.parameters(), lr=self.learning_rate)
+
+    def forward(self, rep):
+        return self.pipeline(rep)
+
+    def transform(self, board:Logic.Board, player:int) -> list:
+        # compute 19 hand-crafted features from board position
+        pos = board.positions
+
+        # pip counts normalized by starting pip count (167)
+        p1_pip = sum((24 - i) * abs(pos[i]) for i in range(24) if pos[i] < 0)
+        p1_pip += 25 * pos[24]
+        p2_pip = sum((i + 1) * pos[i] for i in range(24) if pos[i] > 0)
+        p2_pip += 25 * pos[25]
+
+        # pip difference from current player's perspective
+        pip_diff = (p1_pip - p2_pip) if player == 1 else (p2_pip - p1_pip)
+
+        # bear-off: true if all pieces in home board and none on bar
+        p1_bo = float(all(pos[i] >= 0 for i in range(6, 24)) and pos[24] == 0)
+        p2_bo = float(all(pos[i] <= 0 for i in range(0, 18)) and pos[25] == 0)
+
+        # blots (single exposed pieces) normalized by max pieces (15)
+        p1_blots = sum(1 for p in pos[:24] if p == -1) / 15
+        p2_blots = sum(1 for p in pos[:24] if p == 1) / 15
+
+        # blots in opponent home board (most dangerous)
+        # p1 danger zone: p2 home = indices 18-23
+        # p2 danger zone: p1 home = indices 0-5
+        p1_blots_danger = sum(1 for i in range(18, 24) if pos[i] == -1) / 15
+        p2_blots_danger = sum(1 for i in range(0, 6) if pos[i] == 1) / 15
+
+        # owned points (2+ pieces) normalized by max points (24)
+        p1_owned = sum(1 for p in pos[:24] if p <= -2) / 24
+        p2_owned = sum(1 for p in pos[:24] if p >= 2) / 24
+
+        # longest prime (consecutive owned points) normalized by max useful prime (6)
+        def longest_run(pred):
+            mx, cur = 0, 0
+            for p in pos[:24]:
+                if pred(p):
+                    cur += 1
+                    mx = max(mx, cur)
+                else:
+                    cur = 0
+            return mx
+
+        p1_prime = longest_run(lambda p: p <= -2) / 6
+        p2_prime = longest_run(lambda p: p >= 2) / 6
+
+        # bar and off normalized by max pieces (15)
+        p1_bar = pos[24] / 15
+        p2_bar = pos[25] / 15
+        p1_off = pos[26] / 15
+        p2_off = pos[27] / 15
+
+        # turn flag
+        turn = [1, 0] if player == 1 else [0, 1]
+
+        return [
+            p1_pip / 167,
+            p2_pip / 167,
+            pip_diff / 167,
+            p1_bo,
+            p2_bo,
+            p1_blots,
+            p2_blots,
+            p1_blots_danger,
+            p2_blots_danger,
+            p1_owned,
+            p2_owned,
+            p1_prime,
+            p2_prime,
+            p1_bar,
+            p2_bar,
+            p1_off,
+            p2_off,
+            turn[0],
+            turn[1],
+        ]
+
+    def predict(self, board:Logic.Board, player:int, roll):
+        moves = board.return_legal_moves(player, roll)
+        next_player = 3 - player
+        pre_repr = self.transform(board, player)
+        with torch.no_grad():
+            pre_eval = (self.forward(torch.tensor(pre_repr, dtype=torch.float32)).item(), 0, 0)
+
+        if len(moves) == 0:
+            post_repr = self.transform(board, next_player)
+            with torch.no_grad():
+                post_eval = (self.forward(torch.tensor(post_repr, dtype=torch.float32)).item(), 0, 0)
+            return [], pre_eval, post_eval, pre_repr, post_repr
+
+        saved_positions = list(board.positions)
+
+        if len(moves) == 1:
+            board.execute_move(player, moves[0])
+            post_repr = self.transform(board, next_player)
+            with torch.no_grad():
+                post_eval = (self.forward(torch.tensor(post_repr, dtype=torch.float32)).item(), 0, 0)
+            board.positions = list(saved_positions)
+            return moves[0], pre_eval, post_eval, pre_repr, post_repr
+
+        post_repr_list = [None] * len(moves)
+        for i in range(len(moves)):
+            board.execute_move(player, moves[i])
+            post_repr_list[i] = self.transform(board, next_player)
+            board.positions = list(saved_positions)
+
+        with torch.no_grad():
+            post_repr_tensor = torch.tensor(post_repr_list, dtype=torch.float32)
+            post_eval_list = self.forward(post_repr_tensor).squeeze(dim=-1).tolist()
+            win_probs = list(post_eval_list)
+            post_eval_list = [(item, 0, 0) for item in post_eval_list]
+
+        idx = np.argmax(win_probs) if player == 1 else np.argmin(win_probs)
+        return moves[idx], pre_eval, post_eval_list[idx], pre_repr, post_repr_list[idx]
+
+    def predict_all(self, board:Logic.Board, player:int, roll):
+        moves = board.return_legal_moves(player, roll)
+        next_player = 3 - player
+        pre_repr = self.transform(board, player)
+        with torch.no_grad():
+            pre_eval = (self.forward(torch.tensor(pre_repr, dtype=torch.float32)).item(), 0, 0)
+
+        if len(moves) == 0:
+            post_repr = self.transform(board, next_player)
+            with torch.no_grad():
+                post_eval = (self.forward(torch.tensor(post_repr, dtype=torch.float32)).item(), 0, 0)
+            return [], pre_eval, [post_eval], pre_repr, [post_repr]
+
+        saved_positions = list(board.positions)
+
+        if len(moves) == 1:
+            board.execute_move(player, moves[0])
+            post_repr = self.transform(board, next_player)
+            with torch.no_grad():
+                post_eval = (self.forward(torch.tensor(post_repr, dtype=torch.float32)).item(), 0, 0)
+            board.positions = list(saved_positions)
+            return [moves[0],], pre_eval, [post_eval], pre_repr, [post_repr]
+
+        post_repr_list = [None] * len(moves)
+        for i in range(len(moves)):
+            board.execute_move(player, moves[i])
+            post_repr_list[i] = self.transform(board, next_player)
+            board.positions = list(saved_positions)
+
+        with torch.no_grad():
+            post_repr_tensor = torch.tensor(post_repr_list, dtype=torch.float32)
+            post_eval_list = self.forward(post_repr_tensor).squeeze(dim=-1).tolist()
+            post_eval_list = [(item, 0, 0) for item in post_eval_list]
+
+        return moves, pre_eval, post_eval_list, pre_repr, post_repr_list
 
     def train_epoch(self):
         start_time = time.time()
