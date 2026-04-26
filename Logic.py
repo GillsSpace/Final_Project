@@ -387,7 +387,7 @@ def plot_training_history(model, model_name, show=True):
 
     plt.figure()
     plt.plot(x, model.history_loss)
-    plt.title("Loss (Win Prob vs GNUBG)")
+    plt.title("Absolute Loss (Win Prob vs GNUBG)")
     plt.xlabel("Evaluation Step")
     plt.ylabel("Loss")
     plt.grid()
@@ -395,7 +395,7 @@ def plot_training_history(model, model_name, show=True):
 
     plt.figure()
     plt.plot(x, model   .history_loss_augmented)
-    plt.title("Augmented Loss (Win + Gammon + Backgammon)")
+    plt.title("Absolute Augmented Loss (Win + Gammon + Backgammon)")
     plt.xlabel("Evaluation Step")
     plt.ylabel("Loss")
     plt.grid()
@@ -403,7 +403,7 @@ def plot_training_history(model, model_name, show=True):
 
     plt.figure()
     plt.plot(x, model.history_td_error)
-    plt.title("TD Error (Squared)")
+    plt.title("Absolute TD Error")
     plt.xlabel("Evaluation Step")
     plt.ylabel("TD Error")
     plt.grid()
@@ -425,3 +425,11 @@ def plot_training_history(model, model_name, show=True):
     plt.ylabel("Turns")
     plt.grid()
     save_plot("game_length.png")
+
+    plt.figure()
+    plt.plot(x, model.history_last_step_loss)
+    plt.title("Loss on Last Step of Each Game")
+    plt.xlabel("Evaluation Step")
+    plt.ylabel("Loss")
+    plt.grid()
+    save_plot("last_step_loss.png")

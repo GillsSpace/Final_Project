@@ -11,8 +11,8 @@ import tqdm
 
 os.environ["CUDA_VISIBLE_DEVICES"] = ""
 
-EPOCHS =  10 * 5000
-MODEL_NAME = 'BasicTD_003'
+EPOCHS =  100 * 5000
+MODEL_NAME = 'BasicTD_004'
 MODEL = f'{MODEL_NAME}.pickle'
 MODEL_TYPE = Models.Model_BasicTD
 INPUT_SIZE = (1,198)

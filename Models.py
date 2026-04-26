@@ -117,6 +117,7 @@ class BaseModel(torch.nn.Module):
                 game_length += 1
 
             last_step_loss = abs(model_win - gnu_win)
+            last_step_loss = last_step_loss if last_step_loss <= 1 else 1
 
             if game_length > 0:
                 avg_loss += total_loss / game_length
