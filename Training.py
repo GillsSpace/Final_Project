@@ -11,7 +11,7 @@ from Logic import plot_training_history
 os.environ["CUDA_VISIBLE_DEVICES"] = ""
 
 EPOCHS =  10 * 5000
-MODEL_NAME = 'BasicTD_003'
+MODEL_NAME = 'BasicTD_004'
 MODEL = f'{MODEL_NAME}.pickle'
 MODEL_TYPE = Models.Model_BasicTD
 INPUT_SIZE = (1,198)
@@ -34,14 +34,17 @@ print()
 print("Starting Training Loop...\n")
 st = time.time()
 last_step_time = time.time()
+print(f"Running initial history update games...")
+print("    ",end="")
 model.run_history_update_game()
 for epoch in range(EPOCHS):
     model.train_epoch()
     if (epoch + 1) % 500 == 0:
         model.time_trained_steps.append(time.time()-last_step_time+model.time_trained_steps[-1])
-        model.run_history_update_game()
         last_step_time = time.time()
         print(f"Epoch {model.epochs_trained} ({epoch + 1}/{EPOCHS}) completed. Total train time = {model.time_trained_steps[-1]}, Current train time = {last_step_time - st}.")
+        print("    ",end="")
+        model.run_history_update_game()
     if (epoch + 1) % 5000 == 0:
         print(f"\nSaving model to {MODEL}...\n")
         Models.Model_Loader.save_model(model, MODEL)

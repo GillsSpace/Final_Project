@@ -48,16 +48,17 @@ class BaseModel(torch.nn.Module):
 
         log_path = os.path.join("logs", self.__class__.__name__)
         def log(str):
-            path = os.path.join(log_path, self.epochs_trained, "_history_update.log")
+            filename = f"{self.epochs_trained}_history_update.log"
+            path = os.path.join(log_path, filename)
             os.makedirs(log_path, exist_ok=True)
             with open(path, 'a') as f:
-                print('Log message here', file=f)
+                print(str, file=f)
 
         if log:
-            log("#"*20)
+            log("#################################")
             log(f"Running history update games for epoch {self.epochs_trained}...")
             log(f"Model: {self._get_name()} trained for {self.time_trained} seconds.")
-            log("#"*20 + "\n")
+            log("#################################\n")
 
         num_games = 10
         for _ in range(num_games): # average over 10 games
