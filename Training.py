@@ -7,11 +7,12 @@ import Models
 import os
 import Validation
 from Logic import plot_training_history
+import tqdm
 
 os.environ["CUDA_VISIBLE_DEVICES"] = ""
 
 EPOCHS =  10 * 5000
-MODEL_NAME = 'BasicTD_004'
+MODEL_NAME = 'BasicTD_003'
 MODEL = f'{MODEL_NAME}.pickle'
 MODEL_TYPE = Models.Model_BasicTD
 INPUT_SIZE = (1,198)
@@ -24,6 +25,9 @@ if os.path.exists(MODEL):
 else:
     print(f"No pre-trained model found at {MODEL}. Starting training from scratch.")
     model = MODEL_TYPE()
+    print(f"Running initial history update games...")
+    print("    ",end="")
+    model.run_history_update_game()
 
 ### SUMMARIZE MODEL #############################
 print("Model Summary:")
@@ -34,10 +38,7 @@ print()
 print("Starting Training Loop...\n")
 st = time.time()
 last_step_time = time.time()
-print(f"Running initial history update games...")
-print("    ",end="")
-model.run_history_update_game()
-for epoch in range(EPOCHS):
+for epoch in tqdm.tqdm(range(EPOCHS)):
     model.train_epoch()
     if (epoch + 1) % 500 == 0:
         model.time_trained_steps.append(time.time()-last_step_time+model.time_trained_steps[-1])

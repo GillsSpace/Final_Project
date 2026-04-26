@@ -17,10 +17,11 @@ class BaseModel(torch.nn.Module):
 
         self.history_loss = []
         self.history_loss_augmented = []
+        self.history_last_step_loss = []
         self.history_td_error = []
         self.history_accuracy = []
         self.history_game_length = []
-
+        
     def forward(self, rep):
         raise NotImplementedError("Subclasses must implement forward()")
     
@@ -39,26 +40,13 @@ class BaseModel(torch.nn.Module):
     def run_diagnostic(self):
         pass
 
-    def run_history_update_game(self, log=False):
+    def run_history_update_game(self):
         avg_loss = 0
         avg_loss_augmented = 0
+        avg_last_step_loss = 0
         avg_td_error = 0
         avg_accuracy = 0
         avg_game_length = 0
-
-        log_path = os.path.join("logs", self.__class__.__name__)
-        def log(str):
-            filename = f"{self.epochs_trained}_history_update.log"
-            path = os.path.join(log_path, filename)
-            os.makedirs(log_path, exist_ok=True)
-            with open(path, 'a') as f:
-                print(str, file=f)
-
-        if log:
-            log("#################################")
-            log(f"Running history update games for epoch {self.epochs_trained}...")
-            log(f"Model: {self._get_name()} trained for {self.time_trained} seconds.")
-            log("#################################\n")
 
         num_games = 10
         for _ in range(num_games): # average over 10 games
@@ -71,6 +59,7 @@ class BaseModel(torch.nn.Module):
             total_td_error = 0
             total_accuracy = 0
             game_length = 0
+            last_step_loss = 0
 
             while not board.is_game_over():
                 action, pre_eval, post_eval, base_obs, next_obs = self.predict(board,player,roll)
@@ -83,15 +72,15 @@ class BaseModel(torch.nn.Module):
                 gnu_gammon = gnubg_probs[1] if player == 1 else gnubg_probs[3]
                 gnu_backgammon = gnubg_probs[2] if player == 1 else gnubg_probs[4]
 
-                loss = (model_win - gnu_win) ** 2
+                loss = abs(model_win - gnu_win)
                 loss_augmented = (
-                    (model_win - gnu_win) ** 2 +
-                    (model_gammon - gnu_gammon) ** 2 +
-                    (model_backgammon - gnu_backgammon) ** 2
+                    abs(model_win - gnu_win) +
+                    abs(model_gammon - gnu_gammon) +
+                    abs(model_backgammon - gnu_backgammon) 
                 )
 
                 total_loss += loss if loss <= 1 else 1
-                total_loss_augmented += loss_augmented if loss_augmented <= 1 else 1
+                total_loss_augmented += loss_augmented if loss_augmented <= 3 else 3
 
                 if len(action) > 0:
                     saved_positions = list(board.positions) 
@@ -120,12 +109,14 @@ class BaseModel(torch.nn.Module):
                         v_s_next = self.forward(torch.tensor(next_obs, dtype=torch.float32))
                         td_error = v_s_next.item() - v_s.item()
 
-                    total_td_error += td_error ** 2
+                    total_td_error += abs(td_error)
 
                 board.execute_move(player,action)
                 player = 1 if player == 2 else 2
                 roll = Logic.rollDice()
                 game_length += 1
+
+            last_step_loss = abs(model_win - gnu_win)
 
             if game_length > 0:
                 avg_loss += total_loss / game_length
@@ -133,20 +124,23 @@ class BaseModel(torch.nn.Module):
                 avg_td_error += total_td_error / game_length
                 avg_accuracy += total_accuracy / game_length
                 avg_game_length += game_length
+                avg_last_step_loss += last_step_loss
 
         avg_loss /= num_games
         avg_loss_augmented /= num_games
         avg_td_error /= num_games
         avg_accuracy /= num_games
         avg_game_length /= num_games
+        avg_last_step_loss /= num_games
 
-        print(f"Average Loss: {avg_loss:.4f}, Average Augmented Loss: {avg_loss_augmented:.4f}, Average TD Error: {avg_td_error:.4f}, Average Accuracy: {avg_accuracy:.4f}, Average Game Length: {avg_game_length:.2f}")
+        print(f"Average Loss: {avg_loss:.4f}, Average Augmented Loss: {avg_loss_augmented:.4f}, Average TD Error: {avg_td_error:.4f}, Average Accuracy: {avg_accuracy:.4f}, Average Game Length: {avg_game_length:.2f}, Average Last Step Loss: {avg_last_step_loss:.4f}")
 
         self.history_loss.append(avg_loss)
         self.history_loss_augmented.append(avg_loss_augmented)
         self.history_td_error.append(avg_td_error)
         self.history_accuracy.append(avg_accuracy)
         self.history_game_length.append(avg_game_length)
+        self.history_last_step_loss.append(avg_last_step_loss)
 
 
 class Model_BasicTD(BaseModel):
