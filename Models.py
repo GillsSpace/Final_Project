@@ -5,6 +5,7 @@ import numpy as np
 import time
 import pickle
 import gnubg_nn as gnubg
+import os
 
 class BaseModel(torch.nn.Module):
     def __init__(self):
@@ -38,12 +39,25 @@ class BaseModel(torch.nn.Module):
     def run_diagnostic(self):
         pass
 
-    def run_history_update_game(self):
+    def run_history_update_game(self, log=False):
         avg_loss = 0
         avg_loss_augmented = 0
         avg_td_error = 0
         avg_accuracy = 0
         avg_game_length = 0
+
+        log_path = os.path.join("logs", self.__class__.__name__)
+        def log(str):
+            path = os.path.join(log_path, self.epochs_trained, "_history_update.log")
+            os.makedirs(log_path, exist_ok=True)
+            with open(path, 'a') as f:
+                print('Log message here', file=f)
+
+        if log:
+            log("#"*20)
+            log(f"Running history update games for epoch {self.epochs_trained}...")
+            log(f"Model: {self._get_name()} trained for {self.time_trained} seconds.")
+            log("#"*20 + "\n")
 
         num_games = 10
         for _ in range(num_games): # average over 10 games
@@ -132,6 +146,7 @@ class BaseModel(torch.nn.Module):
         self.history_td_error.append(avg_td_error)
         self.history_accuracy.append(avg_accuracy)
         self.history_game_length.append(avg_game_length)
+
 
 class Model_BasicTD(BaseModel):
     def __init__(self, h1_size=120, h2_size=80):

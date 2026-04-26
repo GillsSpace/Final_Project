@@ -11,7 +11,7 @@ from Logic import plot_training_history
 os.environ["CUDA_VISIBLE_DEVICES"] = ""
 
 EPOCHS =  10 * 5000
-MODEL_NAME = 'BasicTD_001'
+MODEL_NAME = 'BasicTD_003'
 MODEL = f'{MODEL_NAME}.pickle'
 MODEL_TYPE = Models.Model_BasicTD
 INPUT_SIZE = (1,198)
@@ -34,6 +34,7 @@ print()
 print("Starting Training Loop...\n")
 st = time.time()
 last_step_time = time.time()
+model.run_history_update_game()
 for epoch in range(EPOCHS):
     model.train_epoch()
     if (epoch + 1) % 500 == 0:
