@@ -59,20 +59,18 @@ num_games = 1000
 print(f"\nEvaluating model against baseline for {num_games} games...")
 win_rate = 0
 for _ in range(num_games): # have the model play 1000 games against the baseline and track win rate
-    # randomly choose starting player
-    model_player = np.random.choice([1, 2])
+    # P1: trained model, P2: baseline
     board = Logic.Board()
     roll = Logic.rollDice(first=True)
     player = 1 if roll[0] > roll[1] else 2
-    models = {1: model if model_player == 1 else baseline_model,
-              2: model if model_player == 2 else baseline_model}
+    models = {1: model, 2: baseline_model}
 
     while not board.is_game_over():
         action, _, post_eval, _, _ = models[player].predict(board,player,roll)
         board.execute_move(player,action)
         player = 3 - player
         roll = Logic.rollDice()
-    if board.get_winner() == model_player:
+    if board.get_winner() == 1:
         win_rate += 1
 print(f"Model win rate against baseline: {win_rate/num_games:.2f}")
 
