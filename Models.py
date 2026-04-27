@@ -330,6 +330,105 @@ class Model_GnubgSupervised(Model_BasicTD):
         self.epochs_trained += 1
         self.time_trained += (end_time - start_time)
 
+class Model_Baseline(BaseModel):
+    def __init__(self, hit_weight=2.0, blot_penalty=1.0):
+        super(Model_Baseline, self).__init__()
+        self.hit_weight = hit_weight
+        self.blot_penalty = blot_penalty
+
+    def forward(self, rep):
+        # no prediction
+        return torch.tensor([0.5])
+
+    def transform(self, board: Logic.Board, player):
+        return board._return_tesauro_transform(player)
+    
+    def _count_hits(self, before, after, player):
+        opponent = 3 - player
+
+        before_bar = before[24] if opponent == 1 else before[25]
+        after_bar = after[24] if opponent == 1 else after[25]
+
+        return max(0, after_bar - before_bar)
+    
+    def _count_exposed_blots(self, board, player):
+        blots = 0
+        for pos in board.positions:
+            if player == 1 and pos == -1:
+                blots += 1
+            elif player == 2 and pos == 1:
+                blots += 1
+        return blots
+
+    def predict(self, board: Logic.Board, player, roll):
+        moves = board.return_legal_moves(player, roll)
+        next_player = 3 - player
+
+        pre_repr = self.transform(board, player)
+        pre_eval = (0.5, 0, 0)  # dummy
+
+        if len(moves) == 0:
+            post_repr = self.transform(board, next_player)
+            return [], pre_eval, (0.5, 0, 0), pre_repr, post_repr
+
+        best_score = -float("inf")
+        best_move = None
+        best_post_repr = None
+
+        saved_positions = list(board.positions)
+
+        for move in moves:
+            board.execute_move(player, move)
+
+            hits = self._count_hits(saved_positions, board.positions, player)
+            blots = self._count_exposed_blots(board, player)
+
+            score = self.hit_weight * hits - self.blot_penalty * blots
+
+            if score > best_score:
+                best_score = score
+                best_move = move
+                best_post_repr = self.transform(board, next_player)
+
+            # undo move
+            board.positions = list(saved_positions)
+
+        return best_move, pre_eval, (0.5, 0, 0), pre_repr, best_post_repr
+
+    def predict_all(self, board: Logic.Board, player, roll):
+        moves = board.return_legal_moves(player, roll)
+        next_player = 3 - player
+
+        pre_repr = self.transform(board, player)
+        pre_eval = (0.5, 0, 0)
+
+        if len(moves) == 0:
+            post_repr = self.transform(board, next_player)
+            return [], pre_eval, [(0.5, 0, 0)], pre_repr, [post_repr]
+
+        saved_positions = list(board.positions)
+
+        post_reprs = []
+        evals = []
+
+        for move in moves:
+            board.execute_move(player, move)
+            post_reprs.append(self.transform(board, next_player))
+            evals.append((0.5, 0, 0))
+            board.positions = list(saved_positions)
+
+        return moves, pre_eval, evals, pre_repr, post_reprs
+    
+    def train_epoch(self):
+        start_time = time.time()
+
+        # no training 
+        pass
+
+        end_time = time.time()
+        self.epochs_trained += 1
+        self.time_trained += (end_time - start_time)
+
 
 class Model_Loader:
     @staticmethod
