@@ -280,6 +280,58 @@ class Model_BasicTD(BaseModel):
         self.time_trained += (end_time - start_time)
 
 
+class Model_TDExplore(Model_BasicTD):
+    def __init__(self, h1_size=120, h2_size=80, epsilon=0.1):
+        super(Model_TDExplore, self).__init__(h1_size, h2_size)
+        self.epsilon = epsilon
+
+    def predict(self, board:Logic.Board,player,roll):
+        moves = board.return_legal_moves(player, roll)
+        next_player = 3 - player
+        pre_repr = board._return_tesauro_transform(player)
+        pre_eval = (self.forward(torch.tensor(pre_repr, dtype=torch.float32)).item(), 0, 0)
+
+        if len(moves) == 0:
+            post_repr = board._return_tesauro_transform(next_player)
+            with torch.no_grad():
+                post_eval = (self.forward(torch.tensor(post_repr, dtype=torch.float32)).item(), 0, 0)
+            return [], pre_eval, post_eval, pre_repr, post_repr
+        
+        saved_positions = list(board.positions) 
+
+        if len(moves) == 1:
+            board.execute_move(player, moves[0])
+            post_repr = board._return_tesauro_transform(next_player)
+            with torch.no_grad():
+                post_eval = (self.forward(torch.tensor(post_repr, dtype=torch.float32)).item(), 0, 0)
+            board.positions = list(saved_positions)
+            return moves[0], pre_eval, post_eval, pre_repr, post_repr
+
+        post_repr_list = [None] * len(moves)
+
+        for i in range(len(moves)):
+            move = moves[i]
+            board.execute_move(player, move)
+            post_repr_list[i] = board._return_tesauro_transform(next_player)
+            board.positions = list(saved_positions)
+
+        with torch.no_grad():
+            post_repr_tensor = torch.tensor(post_repr_list, dtype=torch.float32)
+            post_eval_list = self.forward(post_repr_tensor).squeeze(dim=-1).tolist()
+            win_probs = list(post_eval_list)
+            post_eval_list = [(item, 0, 0) for item in post_eval_list]
+
+        if np.random.rand() < self.epsilon:
+            idx = np.random.choice(len(moves))
+        else:
+            if player == 1:
+                idx = np.argmax(win_probs)
+            else:
+                idx = np.argmin(win_probs)
+
+        return moves[idx], pre_eval, post_eval_list[idx], pre_repr, post_repr_list[idx]
+
+
 class Model_GnubgSupervised(Model_BasicTD):
     def __init__(self, h1_size=120, h2_size=80):
         super(Model_GnubgSupervised, self).__init__(h1_size, h2_size)
