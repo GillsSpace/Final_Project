@@ -140,6 +140,8 @@ class Tournament:
 
         bars1 = ax.bar(x - width/2, baseline, width, label='vs Baseline')
         bars2 = ax.bar(x + width/2, gnubg, width, label='vs GNUBG')
+        max_height = max(max(baseline), max(gnubg))
+        ax.set_ylim(0, max_height * 1.08)  
 
         ax.set_ylabel('Win Rate')
         ax.set_title('Model Performance Comparison')
@@ -224,7 +226,7 @@ class Tournament:
         with open(path, "rb") as f:
             return pickle.load(f)
         
-TOURNAMENT_PATH = "tournament_001_10000.pkl"
+TOURNAMENT_PATH = "tournament_002_10000.pkl"
 
 if os.path.exists(TOURNAMENT_PATH):
     print("Loading existing tournament...")
