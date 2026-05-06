@@ -576,7 +576,7 @@ class Model_MultiOutput(BaseModel):
     # gnubg-supervised training using 19 hand-crafted features
     # outputs all 5 gnubg probabilities: win, win_gammon, win_backgammon, lose_gammon, lose_backgammon
     # move selection uses equity score: win + win_gammon + win_backgammon - lose_gammon - lose_backgammon
-    # pre_eval is a 5-tuple instead of 3-tuple, so augmented loss is now meaningful
+    # terminal rewards correctly account for gammon and backgammon outcomes
 
     N_FEATURES = 19
     N_OUTPUTS = 5
@@ -677,6 +677,42 @@ class Model_MultiOutput(BaseModel):
         vals = output_tensor.tolist()
         return tuple(vals)
 
+    def _get_terminal_target(self, board:Logic.Board) -> list:
+        # compute correct terminal target including gammon/backgammon outcomes
+        winner = board.get_winner()
+        pos = board.positions
+
+        # loser has borne off zero pieces = gammon
+        loser_off = pos[27] if winner == 1 else pos[26]
+        is_gammon = (loser_off == 0)
+
+        # backgammon: gammon + loser still has pieces on bar or in winner's home
+        if winner == 1:
+            loser_on_bar = pos[25] > 0
+            loser_in_winner_home = any(pos[i] > 0 for i in range(0, 6))
+        else:
+            loser_on_bar = pos[24] > 0
+            loser_in_winner_home = any(pos[i] < 0 for i in range(18, 24))
+
+        is_backgammon = is_gammon and (loser_on_bar or loser_in_winner_home)
+
+        if winner == 1:
+            return [
+                1.0,
+                1.0 if is_gammon else 0.0,
+                1.0 if is_backgammon else 0.0,
+                0.0,
+                0.0,
+            ]
+        else:
+            return [
+                0.0,
+                0.0,
+                0.0,
+                1.0 if is_gammon else 0.0,
+                1.0 if is_backgammon else 0.0,
+            ]
+
     def predict(self, board:Logic.Board, player:int, roll):
         moves = board.return_legal_moves(player, roll)
         next_player = 3 - player
@@ -711,8 +747,7 @@ class Model_MultiOutput(BaseModel):
 
         with torch.no_grad():
             post_repr_tensor = torch.tensor(post_repr_list, dtype=torch.float32)
-            post_out_batch = self.forward(post_repr_tensor)  # shape (n_moves, 5)
-            # equity score for each move: win + win_g + win_bg - lose_g - lose_bg
+            post_out_batch = self.forward(post_repr_tensor)
             equities = (
                 post_out_batch[:, 0] +
                 post_out_batch[:, 1] +
@@ -779,14 +814,8 @@ class Model_MultiOutput(BaseModel):
             roll = Logic.rollDice()
 
             if board.is_game_over():
-                # terminal: winner gets win=1, all gammon/backgammon probs=0
-                # this is a simplification — a true terminal could be gammon/backgammon
-                # but we don't track that here, so just set win and zero the rest
-                winner = board.get_winner()
-                if winner == 1:
-                    target = [1.0, 0.0, 0.0, 0.0, 0.0]
-                else:
-                    target = [0.0, 0.0, 0.0, 0.0, 0.0]
+                # correct terminal target including gammon/backgammon
+                target = self._get_terminal_target(board)
             else:
                 # gnubg probs from mover's perspective, flip to p1 perspective
                 gnubg_probs = board.return_gnubg_win_probs(mover)
@@ -799,7 +828,6 @@ class Model_MultiOutput(BaseModel):
                         gnubg_probs[4],  # p1 lose backgammon
                     ]
                 else:
-                    # flip: p2 on roll, so gnubg probs are from p2's perspective
                     target = [
                         1 - gnubg_probs[0],  # p1 win = 1 - p2 win
                         gnubg_probs[3],      # p1 win gammon = p2 lose gammon
@@ -819,6 +847,7 @@ class Model_MultiOutput(BaseModel):
         self.epochs_trained += 1
         self.time_trained += (end_time - start_time)
 
+
 class Model_Baseline(BaseModel):
     def __init__(self, hit_weight=2.0, blot_penalty=1.0):
         super(Model_Baseline, self).__init__()
@@ -826,7 +855,6 @@ class Model_Baseline(BaseModel):
         self.blot_penalty = blot_penalty
 
     def forward(self, rep):
-        # no prediction
         return torch.tensor([0.5])
 
     def transform(self, board: Logic.Board, player):
@@ -834,10 +862,8 @@ class Model_Baseline(BaseModel):
     
     def _count_hits(self, before, after, player):
         opponent = 3 - player
-
         before_bar = before[24] if opponent == 1 else before[25]
         after_bar = after[24] if opponent == 1 else after[25]
-
         return max(0, after_bar - before_bar)
     
     def _count_exposed_blots(self, board, player):
@@ -852,9 +878,8 @@ class Model_Baseline(BaseModel):
     def predict(self, board: Logic.Board, player, roll):
         moves = board.return_legal_moves(player, roll)
         next_player = 3 - player
-
         pre_repr = self.transform(board, player)
-        pre_eval = (0.5, 0, 0)  # dummy
+        pre_eval = (0.5, 0, 0)
 
         if len(moves) == 0:
             post_repr = self.transform(board, next_player)
@@ -863,23 +888,17 @@ class Model_Baseline(BaseModel):
         best_score = -float("inf")
         best_move = None
         best_post_repr = None
-
         saved_positions = list(board.positions)
 
         for move in moves:
             board.execute_move(player, move)
-
             hits = self._count_hits(saved_positions, board.positions, player)
             blots = self._count_exposed_blots(board, player)
-
             score = self.hit_weight * hits - self.blot_penalty * blots
-
             if score > best_score:
                 best_score = score
                 best_move = move
                 best_post_repr = self.transform(board, next_player)
-
-            # undo move
             board.positions = list(saved_positions)
 
         return best_move, pre_eval, (0.5, 0, 0), pre_repr, best_post_repr
@@ -887,7 +906,6 @@ class Model_Baseline(BaseModel):
     def predict_all(self, board: Logic.Board, player, roll):
         moves = board.return_legal_moves(player, roll)
         next_player = 3 - player
-
         pre_repr = self.transform(board, player)
         pre_eval = (0.5, 0, 0)
 
@@ -896,7 +914,6 @@ class Model_Baseline(BaseModel):
             return [], pre_eval, [(0.5, 0, 0)], pre_repr, [post_repr]
 
         saved_positions = list(board.positions)
-
         post_reprs = []
         evals = []
 
@@ -910,10 +927,7 @@ class Model_Baseline(BaseModel):
     
     def train_epoch(self):
         start_time = time.time()
-
-        # no training 
         pass
-
         end_time = time.time()
         self.epochs_trained += 1
         self.time_trained += (end_time - start_time)
