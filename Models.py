@@ -282,6 +282,25 @@ class Model_BasicTD(BaseModel):
         self.time_trained += (end_time - start_time)
 
 
+class Model_BigTD(Model_BasicTD):
+    def __init__(self):
+        super(Model_BigTD, self).__init__()
+        
+        self.pipeline = torch.nn.Sequential(
+            torch.nn.Linear(198, 256),
+            torch.nn.ReLU(),
+            torch.nn.Linear(256, 128),
+            torch.nn.ReLU(),
+            torch.nn.Linear(128, 128),
+            torch.nn.ReLU(),
+            torch.nn.Linear(128, 1),
+            torch.nn.Sigmoid()
+        )
+
+        self.learning_rate = 0.001
+        self.trace_decay = 0.8
+
+
 class Model_TDExplore(Model_BasicTD):
     def __init__(self, h1_size=120, h2_size=80, epsilon=0.1):
         super(Model_TDExplore, self).__init__(h1_size, h2_size)
@@ -819,6 +838,7 @@ class Model_MultiOutput(BaseModel):
         self.epochs_trained += 1
         self.time_trained += (end_time - start_time)
 
+
 class Model_Baseline(BaseModel):
     def __init__(self, hit_weight=2.0, blot_penalty=1.0):
         super(Model_Baseline, self).__init__()
@@ -913,6 +933,47 @@ class Model_Baseline(BaseModel):
 
         # no training 
         pass
+
+        end_time = time.time()
+        self.epochs_trained += 1
+        self.time_trained += (end_time - start_time)
+
+
+class Model_AverageTD(Model_BasicTD):
+
+    def train_epoch(self):
+        start_time = time.time()
+        board = Logic.Board()
+        roll = Logic.rollDice(first=True)
+        player = 1 if roll[0] > roll[1] else 2
+        
+        traces = {name: torch.zeros_like(param) for name, param in self.named_parameters()}
+
+        while not board.is_game_over():
+            action, pre_eval, post_eval, pre_repr, post_repr = self.predict(board,player,roll)
+
+            evals = []
+            for roll_possibility in Logic.ROLLS:
+                pass
+
+            board.execute_move(player,action)
+            player = 1 if player == 2 else 2
+            roll = Logic.rollDice()
+            self.zero_grad()
+            v_s = self.forward(torch.tensor(pre_repr, dtype=torch.float32))
+            v_s.backward()
+            with torch.no_grad():
+                if board.is_game_over():
+                    reward = int(board.get_winner() == 1)
+                    td_error = reward - v_s.item()
+                else:
+                    v_s_next = self.forward(torch.tensor(post_repr, dtype=torch.float32))
+                    td_error = v_s_next.item() - v_s.item()
+
+                for name, p in self.named_parameters():
+                    if p.requires_grad and p.grad is not None:
+                        traces[name] = (self.trace_decay * traces[name]) + p.grad
+                        p.data += self.learning_rate * td_error * traces[name]
 
         end_time = time.time()
         self.epochs_trained += 1
