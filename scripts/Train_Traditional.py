@@ -1,20 +1,27 @@
+import ast
 import torch
 import torchinfo
-import scr.Logic as Logic
-import numpy as np
 import time
-import scr.Models as Models
 import os
-import scripts.Validation as Validation
-from scr.Logic import plot_training_history
 import tqdm
+import sys
+from pathlib import Path
+import pandas as pd
+
+root_path = Path.cwd().parent if "__file__" not in globals() else Path(__file__).resolve().parent.parent
+if str(root_path) not in sys.path:
+    sys.path.append(str(root_path))
+
+import scr.Logic as Logic
+import scr.Models as Models
+from scr.Logic import plot_training_history
 
 os.environ["CUDA_VISIBLE_DEVICES"] = ""
 
-EPOCHS =  100 * 5000
-MODEL_NAME = 'BasicTD_004'
+EPOCHS =  100
+MODEL_NAME = 'Traditional_001'
 MODEL = f'{MODEL_NAME}.pickle'
-MODEL_TYPE = Models.Model_BasicTD
+MODEL_TYPE = Models.Model_Traditional
 INPUT_SIZE = (1,198)
 
 ### LOAD IN MODEL FROM FILE #####################
@@ -34,19 +41,28 @@ print("Model Summary:")
 torchinfo.summary(model, input_size=INPUT_SIZE)
 print()
 
+### Load Data ####################################
+
+df = pd.read_csv('data/training_data.csv')
+
+X_list = [ast.literal_eval(x) for x in df['state']]
+Y_list = df['win_prob'].values
+
+X_tensor = torch.tensor(X_list, dtype=torch.float32)
+Y_tensor = torch.tensor(Y_list, dtype=torch.float32)
+
 ### TRAINING LOOP ###############################
 print("Starting Training Loop...\n")
 st = time.time()
 last_step_time = time.time()
 for epoch in tqdm.tqdm(range(EPOCHS)):
-    model.train_epoch()
-    if (epoch + 1) % 500 == 0:
-        model.time_trained_steps.append(time.time()-last_step_time+model.time_trained_steps[-1])
-        last_step_time = time.time()
-        print(f"Epoch {model.epochs_trained} ({epoch + 1}/{EPOCHS}) completed. Total train time = {model.time_trained_steps[-1]}, Current train time = {last_step_time - st}.")
-        print("    ",end="")
-        model.run_history_update_game()
-    if (epoch + 1) % 5000 == 0:
+    model.train_epoch(X_tensor, Y_tensor)
+    model.time_trained_steps.append(time.time()-last_step_time+model.time_trained_steps[-1])
+    last_step_time = time.time()
+    print(f"Epoch {model.epochs_trained} ({epoch + 1}/{EPOCHS}) completed. Total train time = {model.time_trained_steps[-1]}, Current train time = {last_step_time - st}.")
+    print("    ",end="")
+    model.run_history_update_game()
+    if (epoch + 1) % 10 == 0:
         print(f"\nSaving model to {MODEL}...\n")
         Models.Model_Loader.save_model(model, MODEL)
 et = time.time()

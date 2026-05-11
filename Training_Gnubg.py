@@ -1,12 +1,12 @@
 import torch
 import torchinfo
-import Logic
+import scr.Logic as Logic
 import numpy as np
 import time
-import Models
+import scr.Models as Models
 import os
-import Validation
-from Logic import plot_training_history
+import scripts.Validation as Validation
+from scr.Logic import plot_training_history
 
 os.environ["CUDA_VISIBLE_DEVICES"] = ""
 

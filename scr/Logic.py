@@ -5,6 +5,13 @@ import os
 
 from gym_backgammon.envs.backgammon import Backgammon # pyright: ignore[reportMissingImports]
 
+import sys
+from pathlib import Path
+
+root_path = Path.cwd().parent if "__file__" not in globals() else Path(__file__).resolve().parent.parent
+if str(root_path) not in sys.path:
+    sys.path.append(str(root_path))
+
 ROLLS = [(1,1),(1,2),(1,3),(1,4),(1,5),(1,6),(2,2),(2,3),(2,4),(2,5),(2,6),(3,3),(3,4),(3,5),(3,6),(4,4),(4,5),(4,6),(5,5),(5,6),(6,6)]
 
 def rollDice(first=False) -> tuple[int, int]:

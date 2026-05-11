@@ -1,11 +1,21 @@
-import torch
-import torchinfo
-import Logic
-import numpy as np
-import time
-import pickle
-import gnubg_nn as gnubg
 import os
+import ast
+import time
+import torch
+import pickle
+import torchinfo
+import numpy as np
+import pandas as pd
+import gnubg_nn as gnubg
+
+import sys
+from pathlib import Path
+
+root_path = Path.cwd().parent if "__file__" not in globals() else Path(__file__).resolve().parent.parent
+if str(root_path) not in sys.path:
+    sys.path.append(str(root_path))
+
+import scr.Logic as Logic
 
 class BaseModel(torch.nn.Module):
     def __init__(self):
@@ -991,6 +1001,22 @@ class Model_AverageTD(Model_BasicTD):
         end_time = time.time()
         self.epochs_trained += 1
         self.time_trained += (end_time - start_time)
+
+        
+class Model_Traditional(Model_BasicTD):
+    def __init__(self):
+        super(Model_Traditional, self).__init__()
+
+        self.optimizer = torch.optim.Adam(self.parameters(), lr=self.learning_rate)
+        self.loss_fn = torch.nn.MSELoss()
+
+    def train_epoch(self, X, y):
+        self.optimizer.zero_grad()
+        preds = self.forward(X).squeeze(dim=-1)
+        loss = self.loss_fn(preds, y)
+        loss.backward()
+        self.optimizer.step()
+
 
 
 class Model_Loader:

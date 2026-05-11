@@ -2,8 +2,8 @@ import pickle
 import os
 import numpy as np
 import random
-import Logic
-import Models
+import scr.Logic as Logic
+import scr.Models as Models
 import gnubg_nn as gnubg
 import matplotlib.pyplot as plt
 from Training_all import train_all

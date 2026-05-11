@@ -1,4 +1,4 @@
-import Logic
+import scr.Logic as Logic
 import time
 import random
 

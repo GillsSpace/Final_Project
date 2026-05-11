@@ -1,7 +1,7 @@
 import gnubg_nn as gnubg
-import Logic
+import scr.Logic as Logic
 import time
-import Models
+import scr.Models as Models
 
 def test_gnubg_conversions():
     POSITION_SET_A = {

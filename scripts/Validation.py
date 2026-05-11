@@ -1,6 +1,6 @@
 import gnubg_nn as gnubg
-import Logic
-import Models
+import scr.Logic as Logic
+import scr.Models as Models
 import numpy as np
 
 POSITION_SET_A = {
