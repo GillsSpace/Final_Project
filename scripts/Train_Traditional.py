@@ -1,12 +1,13 @@
+import os
 import ast
+import time
+import tqdm
 import torch
 import torchinfo
-import time
-import os
-import tqdm
+import pandas as pd
+
 import sys
 from pathlib import Path
-import pandas as pd
 
 root_path = Path.cwd().parent if "__file__" not in globals() else Path(__file__).resolve().parent.parent
 if str(root_path) not in sys.path:
@@ -57,12 +58,13 @@ st = time.time()
 last_step_time = time.time()
 for epoch in tqdm.tqdm(range(EPOCHS)):
     model.train_epoch(X_tensor, Y_tensor)
-    model.time_trained_steps.append(time.time()-last_step_time+model.time_trained_steps[-1])
-    last_step_time = time.time()
-    print(f"Epoch {model.epochs_trained} ({epoch + 1}/{EPOCHS}) completed. Total train time = {model.time_trained_steps[-1]}, Current train time = {last_step_time - st}.")
-    print("    ",end="")
-    model.run_history_update_game()
     if (epoch + 1) % 10 == 0:
+        model.time_trained_steps.append(time.time()-last_step_time+model.time_trained_steps[-1])
+        last_step_time = time.time()
+        print(f"Epoch {model.epochs_trained} ({epoch + 1}/{EPOCHS}) completed. Total train time = {model.time_trained_steps[-1]}, Current train time = {last_step_time - st}.")
+        print("    ",end="")
+        model.run_history_update_game()
+    if (epoch + 1) % 100 == 0:
         print(f"\nSaving model to {MODEL}...\n")
         Models.Model_Loader.save_model(model, MODEL)
 et = time.time()

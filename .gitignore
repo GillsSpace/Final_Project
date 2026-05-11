@@ -1,6 +1,7 @@
 /gym-backgammon
 /.venv
-/__pycache__
+*__pycache__
 *.out
 /plots
+/data/training_data.csv
 /logs
