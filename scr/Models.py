@@ -311,6 +311,23 @@ class Model_BigTD(Model_BasicTD):
         self.trace_decay = 0.8
 
 
+class Model_SmallTD(Model_BasicTD):
+    def __init__(self):
+        super(Model_SmallTD, self).__init__()
+        
+        self.pipeline = torch.nn.Sequential(
+            torch.nn.Linear(198, 60),
+            torch.nn.ReLU(),
+            torch.nn.Linear(60, 20),
+            torch.nn.ReLU(),
+            torch.nn.Linear(20, 1),
+            torch.nn.Sigmoid()
+        )
+
+        self.learning_rate = 0.001
+        self.trace_decay = 0.8
+
+
 class Model_TDExplore(Model_BasicTD):
     def __init__(self, h1_size=120, h2_size=80, epsilon=0.1):
         super(Model_TDExplore, self).__init__(h1_size, h2_size)
@@ -410,7 +427,7 @@ class Model_HandCrafted(BaseModel):
 
     N_FEATURES = 19
 
-    def __init__(self, h1_size=64, h2_size=32):
+    def __init__(self, h1_size=120, h2_size=80):
         super(Model_HandCrafted, self).__init__()
 
         self.learning_rate = 0.001
@@ -601,6 +618,36 @@ class Model_HandCrafted(BaseModel):
         self.time_trained += (end_time - start_time)
 
 
+class Model_BoardStandard(BaseModel):
+    # simple model that directly uses the raw board positions as input
+    # serves as a sanity check for whether the hand-crafted features are actually helpful
+
+    N_FEATURES = 28
+
+    def __init__(self, h1_size=120, h2_size=80):
+        super(Model_BoardStandard, self).__init__()
+
+        self.learning_rate = 0.001
+        self.loss_fn = torch.nn.MSELoss()
+
+        self.pipeline = torch.nn.Sequential(
+            torch.nn.Linear(self.N_FEATURES, h1_size),
+            torch.nn.ReLU(),
+            torch.nn.Linear(h1_size, h2_size),
+            torch.nn.ReLU(),
+            torch.nn.Linear(h2_size, 1),
+            torch.nn.Sigmoid()
+        )
+
+        self.optimizer = torch.optim.Adam(self.parameters(), lr=self.learning_rate)
+
+    def forward(self, rep):
+        return self.pipeline(rep)
+
+    def transform(self, board:Logic.Board, player:int) -> list:
+        return [x / 15 for x in board.positions]
+
+
 class Model_MultiOutput(BaseModel):
     # gnubg-supervised training using 19 hand-crafted features
     # outputs all 5 gnubg probabilities: win, win_gammon, win_backgammon, lose_gammon, lose_backgammon
@@ -610,7 +657,7 @@ class Model_MultiOutput(BaseModel):
     N_FEATURES = 19
     N_OUTPUTS = 5
 
-    def __init__(self, h1_size=64, h2_size=32):
+    def __init__(self, h1_size=120, h2_size=80):
         super(Model_MultiOutput, self).__init__()
 
         self.learning_rate = 0.001
@@ -1016,7 +1063,6 @@ class Model_Traditional(Model_BasicTD):
         loss = self.loss_fn(preds, y)
         loss.backward()
         self.optimizer.step()
-
 
 
 class Model_Loader:

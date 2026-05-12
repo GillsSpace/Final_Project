@@ -1,7 +1,15 @@
 import gnubg_nn as gnubg
+import numpy as np
+
+import sys
+from pathlib import Path
+
+root_path = Path.cwd().parent if "__file__" not in globals() else Path(__file__).resolve().parent.parent
+if str(root_path) not in sys.path:
+    sys.path.append(str(root_path))
+
 import scr.Logic as Logic
 import scr.Models as Models
-import numpy as np
 
 POSITION_SET_A = {
     'A1': [-2, 0, 0, 0, 0, 5, 0, 3, 0, 0, 0, -5, 5, 0, 0, 0, -3, 0, -5, 0, 0, 0, 0, 2, 0, 0, 0, 0],

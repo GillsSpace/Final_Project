@@ -1,13 +1,23 @@
+import os
+import ast
+import time
+import tqdm
 import torch
 import torchinfo
-import scr.Logic as Logic
 import numpy as np
-import time
+import pandas as pd
+
+import sys
+from pathlib import Path
+
+root_path = Path.cwd().parent if "__file__" not in globals() else Path(__file__).resolve().parent.parent
+if str(root_path) not in sys.path:
+    sys.path.append(str(root_path))
+
+import scr.Logic as Logic
 import scr.Models as Models
-import os
 import scripts.Validation as Validation
 from scr.Logic import plot_training_history
-import tqdm
 
 os.environ["CUDA_VISIBLE_DEVICES"] = ""
 

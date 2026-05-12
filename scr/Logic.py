@@ -371,13 +371,6 @@ class Board:
         gnu_rep = self._return_gnubg_transform(player_on_roll=player_on_roll)
         return gnubg.probabilities(gnu_rep,gnubg.p_prune)
 
-class SimpleBoard:
-    def __init__(self,positions,pip,bear_off_status):
-        self.pos = positions
-        self.pip = pip
-        self.bos = bear_off_status
-
-
 def plot_training_history(model, model_name, show=True):
     x = range(len(model.history_loss))
 
