@@ -14,6 +14,8 @@ import scr.Logic as Logic
 
 # create data file if it doesn't exist:
 DATA_FILE = "data/training_data.csv"
+if not os.path.exists("data"):
+    os.makedirs("data")
 if not os.path.exists(DATA_FILE):
     with open(DATA_FILE, "w") as f:
         f.write("state,win_prob\n")

@@ -14,7 +14,7 @@ pip3 install -e .
 Additionally, the following Python packages are required:
 
 ```bash
-pip install torch torchinfo gnubg gnubg-nn tqdm
+pip install torch torchinfo gnubg gnubg-nn tqdm numpy pandas matplotlib
 ```
 
 > *Used with permission of Alessio Della Libera under the MIT License. See LICENSE file of gym-backgammon for details.
