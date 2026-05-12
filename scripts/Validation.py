@@ -91,7 +91,44 @@ def play_in_terminal(model):
             player = 1 if player == 2 else 2
             roll = Logic.rollDice()
 
+def test_opening_moves(model):
+    model = Models.Model_Loader.load_model(model)
+
+    board = Logic.Board()
+
+    print(f"\nTesting model predictions for opening moves...\n")
+
+    board.render_terminal()
+
+    print('\nMove predictions and evaluation for player 1:\n')
+    
+    for roll in Logic.FIRST_ROLLS:
+        action, _, post_eval, _, _ = model.predict(board,1,roll)
+        print(f'    {roll} ----> {action} (Evaluation: {post_eval})')
+
+def play_x_moves(model, x=3):
+    model = Models.Model_Loader.load_model(model)
+
+    board = Logic.Board()
+    roll = Logic.rollDice(True)
+    player = 1 if roll[0] > roll[1] else 2
+
+    print(f"\nStarting Game of {x} Moves...")
+    board.render_terminal()
+    print(f"Player {player} won opening roll with {roll}\n")
+    move_count = 0
+    while not board.is_game_over() and move_count < x:
+        action, _, post_eval, _, _ = model.predict(board,player,roll)
+        print(f"Player {player} with roll {roll} makes move {action} - ({post_eval})...")
+        board.execute_move(player,action)
+        board.render_terminal()
+        print()
+        player = 1 if player == 2 else 2
+        roll = Logic.rollDice()
+        move_count += 1
+
 
 if __name__ == "__main__":
-    MODEL = 'BasicTD_001.pickle'
+    sys.modules['Models'] = Models
+    MODEL = 'models/BasicTD_Final.pickle'
     play_in_terminal(MODEL)
