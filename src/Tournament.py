@@ -212,7 +212,7 @@ class Tournament:
                 continue
             display_name = model_name.replace("models/", "").replace("_Final", "")
 
-            smoothed = self.sma(values, window=10)
+            smoothed = self.sma(values, window=20)
             plt.plot(smoothed, label=display_name)
 
         plt.gca().xaxis.set_major_formatter(
