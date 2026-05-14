@@ -1,17 +1,17 @@
 import pickle
-import os
 import numpy as np
 import random
-import scr.Logic as Logic
-import scr.Models as Models
 import gnubg_nn as gnubg
 import matplotlib.pyplot as plt
-from Training_all import train_all
+import sys
+from pathlib import Path
 
-model_types = ["BasicTD", "GnubgSupervised", "HandCrafted", "MultiOutput"]
-model_names = [f"{model_type}_final" for model_type in model_types]
-train_all(model_types, model_names, max_epochs=10*5000)
-num_games = 5000
+root_path = Path.cwd().parent if "__file__" not in globals() else Path(__file__).resolve().parent.parent
+if str(root_path) not in sys.path:
+    sys.path.append(str(root_path))
+
+import src.Logic as Logic
+import src.Models as Models
 
 class Tournament:
     def __init__(self, model_names, baseline_model, num_games=5000):
@@ -28,7 +28,7 @@ class Tournament:
         self.win_vs_gnubg = {name: None for name in model_names}
         self.win_matrix = np.full((len(model_names), len(model_names)), np.nan)
 
-        self.metrics = ["history_loss", "history_loss_augmented", "history_accuracy"]
+        self.metrics = ["history_loss", "history_loss_augmented", "history_accuracy", "history_last_step_loss", "history_td_error", "history_game_length"]
 
         self.metrics_history = {
             name: {metric: getattr(self.models[name], metric, [])
@@ -36,7 +36,7 @@ class Tournament:
             for name in model_names
         }
 
-    def play_game(self, model1, model2):
+    def play_game(self, model1, model2, max_moves=500):
         board = Logic.Board()
         roll = Logic.rollDice(first=True)
 
@@ -47,12 +47,15 @@ class Tournament:
             1: model1 if player_model1 == 1 else model2,
             2: model1 if player_model1 == 2 else model2
         }
-
+        moves = 0
         while not board.is_game_over():
+            if moves >= max_moves:
+                return None  # Draw / timeout
             action, _, _, _, _ = models[player].predict(board, player, roll)
             board.execute_move(player, action)
             player = 3 - player
             roll = Logic.rollDice()
+            moves += 1
 
         return board.get_winner() == player_model1
 
@@ -114,15 +117,20 @@ class Tournament:
                 model2 = self.models[name2]
 
                 wins = 0
+                timeouts = 0
                 for _ in range(self.num_games):
-                    if self.play_game(model1, model2):
-                        wins += 1
+                    result = self.play_game(model1, model2)
+                    if result is None:
+                        timeouts += 1
+                    else:
+                        wins += result
 
-                rate = wins / self.num_games
+                # Timed-out games count as 0.5 each
+                rate = (wins + timeouts * 0.5) / self.num_games
                 self.win_matrix[i][j] = rate
                 self.win_matrix[j][i] = 1 - rate
 
-                print(f"{name1} vs {name2}: {rate:.2f}")
+                print(f"{name1} vs {name2}: {rate:.2f} ({timeouts} timeouts)")
 
     def run_all(self):
         self.evaluate_vs_baseline()
@@ -136,6 +144,8 @@ class Tournament:
         baseline = [self.win_vs_baseline[m] for m in self.model_names]
         gnubg = [self.win_vs_gnubg[m] for m in self.model_names]
 
+        display_names = [name.replace("models/", "").replace("_Final", "") for name in self.model_names]
+
         fig, ax = plt.subplots()
 
         bars1 = ax.bar(x - width/2, baseline, width, label='vs Baseline')
@@ -146,16 +156,40 @@ class Tournament:
         ax.set_ylabel('Win Rate')
         ax.set_title('Model Performance Comparison')
         ax.set_xticks(x)
-        ax.set_xticklabels(self.model_names, rotation=30)
-        ax.legend()
+        ax.set_xticklabels(display_names, rotation=30)
+        ax.legend(
+            loc='center',
+            bbox_to_anchor=(0.8, 0.5)
+        )
 
-        for bar in bars1 + bars2:
+        # for bar in bars1 + bars2:
+        #     height = bar.get_height()
+        #     ax.annotate(f'{height:.2f}',
+        #                 xy=(bar.get_x() + bar.get_width() / 2, height),
+        #                 xytext=(0, 3),
+        #                 textcoords="offset points",
+        #                 ha='center', va='bottom')
+        for bar in bars1:
             height = bar.get_height()
-            ax.annotate(f'{height:.2f}',
-                        xy=(bar.get_x() + bar.get_width() / 2, height),
-                        xytext=(0, 3),
-                        textcoords="offset points",
-                        ha='center', va='bottom')
+            ax.annotate(
+                f'{height:.2f}',
+                xy=(bar.get_x() + bar.get_width() / 2, height),
+                xytext=(-5, 3),
+                textcoords="offset points",
+                ha='center',
+                va='bottom'
+            )
+
+        for bar in bars2:
+            height = bar.get_height()
+            ax.annotate(
+                f'{height:.2f}',
+                xy=(bar.get_x() + bar.get_width() / 2, height),
+                xytext=(5, 10),  
+                textcoords="offset points",
+                ha='center',
+                va='bottom'
+            )
 
         plt.tight_layout()
         plt.savefig(save_path, dpi=300)
@@ -174,11 +208,12 @@ class Tournament:
 
         for model_name in self.model_names:
             values = self.metrics_history[model_name].get(metric, [])
-            if not values:
+            if not values or "Traditional" in model_name: # Traditional model doesn't have training history
                 continue
+            display_name = model_name.replace("models/", "").replace("_Final", "")
 
             smoothed = self.sma(values, window=10)
-            plt.plot(smoothed, label=model_name)
+            plt.plot(smoothed, label=display_name)
 
         plt.gca().xaxis.set_major_formatter(
             plt.FuncFormatter(lambda x, _: f'{int(x*500):,}')
@@ -195,18 +230,20 @@ class Tournament:
     def plot_win_rate_matrix(self, save_path="plots/winrate_matrix.png"):
         fig, ax = plt.subplots()
 
-        im = ax.imshow(self.win_matrix, cmap="coolwarm", vmin=0, vmax=1)
+        im = ax.imshow(self.win_matrix, cmap="coolwarm", vmin=0, vmax=1, alpha=0.8)
+
+        display_names = [name.replace("models/", "").replace("_Final", "") for name in self.model_names]
 
         ax.set_xticks(np.arange(len(self.model_names)))
         ax.set_yticks(np.arange(len(self.model_names)))
-        ax.set_xticklabels(self.model_names, rotation=45)
-        ax.set_yticklabels(self.model_names)
+        ax.set_xticklabels(display_names, rotation=45)
+        ax.set_yticklabels(display_names)
 
         for i in range(len(self.model_names)):
             for j in range(len(self.model_names)):
                 val = self.win_matrix[i, j]
                 if not np.isnan(val):
-                    ax.text(j, i, f"{val:.2f}", ha="center", va="center")
+                    ax.text(j, i, f"{val:.2f}", ha="center", va="center", fontsize=8)
 
         plt.title("Model vs Model Win Rates")
         plt.xlabel("Opponent")
@@ -225,32 +262,3 @@ class Tournament:
     def load(path):
         with open(path, "rb") as f:
             return pickle.load(f)
-        
-TOURNAMENT_PATH = "tournament_002_10000.pkl"
-
-if os.path.exists(TOURNAMENT_PATH):
-    print("Loading existing tournament...")
-    tournament = Tournament.load(TOURNAMENT_PATH)
-else:
-    print("Running new tournament...")
-    baseline_model = Models.Model_Loader.load_model('Baseline_001.pickle')
-
-    tournament = Tournament(
-        model_names=model_names,
-        baseline_model=baseline_model,
-        num_games=10000
-    )
-
-    tournament.run_all()
-    tournament.save(TOURNAMENT_PATH)
-
-tournament.plot_win_rates()
-
-for metric, label in [
-    ("history_loss", "Loss"),
-    ("history_loss_augmented", "Augmented Loss"),
-    ("history_accuracy", "Accuracy")
-]:
-    tournament.plot_metric(metric, label)
-
-tournament.plot_win_rate_matrix()

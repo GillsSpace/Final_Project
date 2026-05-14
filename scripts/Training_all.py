@@ -1,13 +1,20 @@
+import sys
+from pathlib import Path
 import torch
 import torchinfo
-import scr.Logic as Logic
 import numpy as np
 import time
-import scr.Models as Models
-import os
-import scripts.Validation as Validation
-from scr.Logic import plot_training_history
 import tqdm
+import ast
+import pandas as pd
+import os
+
+root_path = Path.cwd().parent if "__file__" not in globals() else Path(__file__).resolve().parent.parent
+if str(root_path) not in sys.path:
+    sys.path.append(str(root_path))
+
+import src.Models as Models
+from src.Logic import plot_training_history
 
 os.environ["CUDA_VISIBLE_DEVICES"] = ""
 
@@ -15,13 +22,17 @@ def train_all(model_types, model_names, max_epochs=100*5000):
     for model_type, model_name in zip(model_types, model_names):
         if model_type == "Baseline":
             print(f"\n{'='*20} Skipping training for Baseline model {'='*20}\n")
-            Models.Model_Loader.save_model(Models.Model_Baseline(), f'{model_name}.pickle')
+            Models.Model_Loader.save_model(Models.Model_Baseline(), f'models/{model_name}.pickle')
+            continue
+
+        if model_type == "Traditional":
+            print(f"\n{'='*20} Skipping training for Traditional model {'='*20}\n")
             continue
 
         print(f"\n{'='*20} Training {model_type} up to {max_epochs} total epochs {'='*20}\n")
         MODEL = f'{model_name}.pickle'
         MODEL_TYPE = getattr(Models, f'Model_{model_type}')
-        INPUT_SIZE = (1,198) if model_type in ["BasicTD", "GnubgSupervised", "EpsilonGreedy"] else (1,19)
+        INPUT_SIZE = (1,19) if model_type in ["HandCrafted", "MultiOutput"] else (1, 28) if model_type == "BoardStandard" else (1,198)
 
         ### LOAD IN MODEL FROM FILE #####################
         print()
@@ -59,7 +70,7 @@ def train_all(model_types, model_names, max_epochs=100*5000):
         st = time.time()
         last_step_time = time.time()
         for epoch in tqdm.tqdm(range(remaining_epochs)):
-            model.train_epoch()
+            model.train_epoch() 
             if (epoch + 1) % 500 == 0:
                 model.time_trained_steps.append(time.time()-last_step_time+model.time_trained_steps[-1])
                 last_step_time = time.time()
@@ -72,7 +83,7 @@ def train_all(model_types, model_names, max_epochs=100*5000):
         et = time.time()
         print(f"Training Loop Finished in {et-st} seconds Average EPOCH time this loop = {(et-st)/remaining_epochs}.")
 
-        plot_training_history(model, model_name)
+        plot_training_history(model, model_name, show=False)
 
         print(f"Saving model to {MODEL}...")
         Models.Model_Loader.save_model(model, MODEL)

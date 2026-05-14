@@ -10,7 +10,7 @@ root_path = Path.cwd().parent if "__file__" not in globals() else Path(__file__)
 if str(root_path) not in sys.path:
     sys.path.append(str(root_path))
 
-import scr.Logic as Logic
+import src.Logic as Logic
 
 # create data file if it doesn't exist:
 DATA_FILE = "data/training_data.csv"

@@ -13,9 +13,9 @@ root_path = Path.cwd().parent if "__file__" not in globals() else Path(__file__)
 if str(root_path) not in sys.path:
     sys.path.append(str(root_path))
 
-import scr.Logic as Logic
-import scr.Models as Models
-from scr.Logic import plot_training_history
+import src.Logic as Logic
+import src.Models as Models
+from src.Logic import plot_training_history
 
 os.environ["CUDA_VISIBLE_DEVICES"] = ""
 
