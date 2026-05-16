@@ -17,6 +17,13 @@ POSITION_SET_A = {
     'A3': [0, 3, 3, 3, 3, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -3, -2, -2, -2, -2, -2, 2, 0, 0, 0],
 }
 
+def _format_eval(post_eval):
+    # post_eval is (win, gammon_win, bg_win, gammon_loss, bg_loss)
+    win = post_eval[0]
+    gammon_win = post_eval[1]
+    gammon_loss = post_eval[3]
+    return f"win: {win:.1%}  |  gammon win: {gammon_win:.1%}  |  gammon loss: {gammon_loss:.1%}"
+
 def run_exhibition_game_terminal(model):
     if type(model) == str:
         model = Models.Model_Loader.load_model(model)
@@ -30,7 +37,7 @@ def run_exhibition_game_terminal(model):
     print(f"Player {player} won opening roll with {roll}")
     while not board.is_game_over():
         action, _, post_eval, _, _ = model.predict(board,player,roll)
-        print(f"Player {player} with roll {roll} makes move {action} - ({post_eval[0]:.4f})...")
+        print(f"Player {player} with roll {roll} makes move {action}  ({_format_eval(post_eval)})...")
         board.execute_move(player,action)
         board.render_terminal()
         print()
@@ -104,7 +111,7 @@ def test_opening_moves(model):
     
     for roll in Logic.FIRST_ROLLS:
         action, _, post_eval, _, _ = model.predict(board,1,roll)
-        print(f'    {roll} ----> {action} (Evaluation: {post_eval})')
+        print(f'    {roll} ----> {action}  ({_format_eval(post_eval)})')
 
 def play_x_moves(model, x=3):
     model = Models.Model_Loader.load_model(model)
@@ -119,7 +126,7 @@ def play_x_moves(model, x=3):
     move_count = 0
     while not board.is_game_over() and move_count < x:
         action, _, post_eval, _, _ = model.predict(board,player,roll)
-        print(f"Player {player} with roll {roll} makes move {action} - ({post_eval})...")
+        print(f"Player {player} with roll {roll} makes move {action}  ({_format_eval(post_eval)})...")
         board.execute_move(player,action)
         board.render_terminal()
         print()
