@@ -60,7 +60,7 @@ def play_in_terminal(model):
     while not board.is_game_over():
         if player == 2:
             action, _, post_eval, _, _ = model.predict(board,player,roll)
-            print(f"Player {player} with roll {roll} makes move {action} - ({post_eval})...")
+            print(f"Player {player} with roll {roll} makes move {action}  ({_format_eval(post_eval)})...")
             board.execute_move(player,action)
             board.render_terminal()
             print()
