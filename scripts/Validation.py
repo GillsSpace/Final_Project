@@ -1,7 +1,18 @@
+"""
+Note: This file imports `gym-backgammon` which prints a deprecation warning
+about gym vs. gymnasium. The warning is printed at the C level so we could not supress it
+within Python. To run silently, redirect stderr:
+
+    PowerShell:  py -3.13 scripts/Validation.py 2>$null
+    Bash:        python3 scripts/Validation.py 2>/dev/null
+"""
+...
 import gnubg_nn as gnubg
 import numpy as np
 
 import sys
+
+
 from pathlib import Path
 
 root_path = Path.cwd().parent if "__file__" not in globals() else Path(__file__).resolve().parent.parent
@@ -18,10 +29,13 @@ POSITION_SET_A = {
 }
 
 def _format_eval(post_eval):
-    # post_eval is (win, gammon_win, bg_win, gammon_loss, bg_loss)
-    win = post_eval[0]
-    gammon_win = post_eval[1]
-    gammon_loss = post_eval[3]
+    # post_eval can be (win,) up to (win, gammon_win, bg_win, gammon_loss, bg_loss)
+    # safely pull what's available, default missing values to 0
+    def safe(i):
+        return post_eval[i] if len(post_eval) > i else 0
+    win = safe(0)
+    gammon_win = safe(1)
+    gammon_loss = safe(3)
     return f"win: {win:.1%}  |  gammon win: {gammon_win:.1%}  |  gammon loss: {gammon_loss:.1%}"
 
 def run_exhibition_game_terminal(model):
@@ -36,16 +50,16 @@ def run_exhibition_game_terminal(model):
     print()
     print(f"Player {player} won opening roll with {roll}")
     while not board.is_game_over():
-        action, _, post_eval, _, _ = model.predict(board,player,roll)
+        action, _, post_eval, _, _ = model.predict(board, player, roll)
         print(f"Player {player} with roll {roll} makes move {action}  ({_format_eval(post_eval)})...")
-        board.execute_move(player,action)
+        board.execute_move(player, action)
         board.render_terminal()
         print()
         player = 1 if player == 2 else 2
         roll = Logic.rollDice()
-        
+
 def play_in_terminal(model):
-    #P1 = Human, P2 = Bot
+    # P1 = Human, P2 = Bot
     model = Models.Model_Loader.load_model(model)
 
     board = Logic.Board()
@@ -53,22 +67,22 @@ def play_in_terminal(model):
     player = 1 if roll[0] > roll[1] else 2
 
     print(f"Starting Game...")
-    print(f"Playing against {model._get_name()} trained for {model.epochs_trained} epochs\n.")
+    print(f"Playing against {model._get_name()} trained for {model.epochs_trained} epochs.\n")
     board.render_terminal()
     print(f"Player {player} won opening roll with {roll}\n")
 
     while not board.is_game_over():
         if player == 2:
-            action, _, post_eval, _, _ = model.predict(board,player,roll)
+            action, _, post_eval, _, _ = model.predict(board, player, roll)
             print(f"Player {player} with roll {roll} makes move {action}  ({_format_eval(post_eval)})...")
-            board.execute_move(player,action)
+            board.execute_move(player, action)
             board.render_terminal()
             print()
             player = 1 if player == 2 else 2
             roll = Logic.rollDice()
         else:
-            possible_actions = board.return_legal_moves(1,roll)
-            actions, pre_evals, post_evals, _, _ = model.predict_all(board,player,roll)
+            possible_actions = board.return_legal_moves(1, roll)
+            actions, pre_evals, post_evals, _, _ = model.predict_all(board, player, roll)
             num_possible_actions = len(possible_actions)
             print(f"Roll is {roll}, please select move from choices below (type 'm' to see all):")
             if num_possible_actions > 0:
@@ -79,18 +93,18 @@ def play_in_terminal(model):
                 top_moves = [actions[i] for i in top_idx]
                 top_evals = [post_evals[i] for i in top_idx]
                 for i in range(len(top_moves)):
-                    print(f'{i+1} ({top_evals[i][0]}) --> {top_moves[i]}')
+                    print(f'{i+1} ({_format_eval(top_evals[i])}) --> {top_moves[i]}')
                 choice = input('Selected Move: ')
                 if choice == 'm':
                     for i in range(len(possible_actions)):
                         print(f'{i+1} --> {possible_actions[i]}')
                     choice = int(input('Selected Move: ')) - 1
                     action = possible_actions[choice]
-                    board.execute_move(player,action)
+                    board.execute_move(player, action)
                 else:
                     choice = int(choice) - 1
                     action = top_moves[choice]
-                    board.execute_move(player,action)
+                    board.execute_move(player, action)
             else:
                 _ = input('No Possible Moves. Press ENTER to continue.')
             board.render_terminal()
@@ -108,9 +122,9 @@ def test_opening_moves(model):
     board.render_terminal()
 
     print('\nMove predictions and evaluation for player 1:\n')
-    
+
     for roll in Logic.FIRST_ROLLS:
-        action, _, post_eval, _, _ = model.predict(board,1,roll)
+        action, _, post_eval, _, _ = model.predict(board, 1, roll)
         print(f'    {roll} ----> {action}  ({_format_eval(post_eval)})')
 
 def play_x_moves(model, x=3):
@@ -125,9 +139,9 @@ def play_x_moves(model, x=3):
     print(f"Player {player} won opening roll with {roll}\n")
     move_count = 0
     while not board.is_game_over() and move_count < x:
-        action, _, post_eval, _, _ = model.predict(board,player,roll)
+        action, _, post_eval, _, _ = model.predict(board, player, roll)
         print(f"Player {player} with roll {roll} makes move {action}  ({_format_eval(post_eval)})...")
-        board.execute_move(player,action)
+        board.execute_move(player, action)
         board.render_terminal()
         print()
         player = 1 if player == 2 else 2
